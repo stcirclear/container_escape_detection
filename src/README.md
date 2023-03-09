@@ -5,7 +5,7 @@
 ## 编译运行
 1. 在主文件夹目录下初始化submodule
 ```shell
-git submodule update --init
+git submodule update --init --recursive
 ```
 2. 在src目录下编译
 ```shell
