@@ -5,9 +5,9 @@
 Ubuntu 18.04, 5.4.0-109-generic
 2. 软件版本及安装方法
 ```
-(sudo) pip3 install coolbpf
-git clone https://gitee.com/anolis/coolbpf.git
+sudo apt install clang libelf1 libelf-dev zlib1g-dev
 ```
+**Clang版本需要10+**
 
 ## 模块介绍
 
