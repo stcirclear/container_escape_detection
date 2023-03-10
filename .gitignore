@@ -1,2 +1,4 @@
 # vscode file
 .vscode/
+*.so
+src/__pycache__/
