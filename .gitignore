@@ -2,3 +2,4 @@
 .vscode/
 *.so
 src/__pycache__/
+.idea/
