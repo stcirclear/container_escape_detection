@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
 # from https://github.com/libbpf/libbpf-bootstrap/
 OUTPUT := .output
-CLANG ?= clang-10
-LLVM_STRIP ?= llvm-strip-10
+CLANG ?= clang
+LLVM_STRIP ?= llvm-strip
 BPFTOOL_SRC := $(abspath ../bpftool/src)
 LIBBPF_SRC := $(abspath ../libbpf/src)
 LIBBPF_OBJ := $(abspath $(OUTPUT)/libbpf.a)

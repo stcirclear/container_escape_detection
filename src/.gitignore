@@ -3,3 +3,4 @@
 /opensnoop
 /syscount
 /*.o
+/dockerinfo.json

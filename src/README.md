@@ -11,7 +11,11 @@ git submodule update --init --recursive
 ```shell
 make all
 ```
-3. 运行
+3. 运行单个组件
 ```shell
 sudo ./syscount
+```
+4. 运行主程序
+```shell
+sudo python3 main.py
 ```
