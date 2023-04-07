@@ -13,11 +13,18 @@ VMLINUX := ../vmlinux/$(ARCH)/vmlinux.h
 # Use our own libbpf API headers and Linux UAPI headers distributed with
 # libbpf to avoid dependency on system-wide headers, which could be missing or
 # outdated
-INCLUDES := -I$(OUTPUT) -I../libbpf/include/uapi -I$(dir $(VMLINUX))
+INCLUDES := -I$(OUTPUT) -I../libbpf/include/uapi -I./utils -I$(dir $(VMLINUX))
 CFLAGS := -g -Wall
 
-APPS = opensnoop execsnoop syscount
+APPS = opensnoop execsnoop syscount sysrecord procrecord filerecord
 
+COMMON_OBJ = \
+	$(OUTPUT)/trace_helpers.o \
+	$(OUTPUT)/syscall_helpers.o \
+	$(OUTPUT)/errno_helpers.o \
+	$(OUTPUT)/uprobe_helpers.o \
+	$(OUTPUT)/btf_helpers.o \
+	#
 # Get Clang's default includes on this system. We'll explicitly add these dirs
 # to the includes list when compiling with `-target bpf` because otherwise some
 # architecture-specific dirs will be "missing" on some architectures/distros -
@@ -47,7 +54,7 @@ all: $(APPS)
 .PHONY: clean
 clean:
 	$(call msg,CLEAN)
-	$(Q)rm -rf $(OUTPUT) $(APPS)
+	$(Q)rm -rf $(OUTPUT) $(APPS) *.txt
 
 $(OUTPUT) $(OUTPUT)/libbpf $(BPFTOOL_OUTPUT):
 	$(call msg,MKDIR,$@)
@@ -67,42 +74,66 @@ $(BPFTOOL): | $(BPFTOOL_OUTPUT)
 	$(Q)$(MAKE) ARCH= CROSS_COMPILE= OUTPUT=$(BPFTOOL_OUTPUT)/ -C $(BPFTOOL_SRC) bootstrap
 
 # Build BPF code
-$(OUTPUT)/%.bpf.o: %.bpf.c $(LIBBPF_OBJ) $(wildcard %.h) $(VMLINUX) | $(OUTPUT)
+$(OUTPUT)/%.bpf.o: file/%.bpf.c $(LIBBPF_OBJ) $(wildcard %.h) $(VMLINUX) | $(OUTPUT)
 	$(call msg,BPF,$@)
 	$(Q)$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH) $(INCLUDES) $(CLANG_BPF_SYS_INCLUDES) -c $(filter %.c,$^) -o $@
 	$(Q)$(LLVM_STRIP) -g $@ # strip useless DWARF info
+
+$(OUTPUT)/%.bpf.o: process/%.bpf.c $(LIBBPF_OBJ) $(wildcard %.h) $(VMLINUX) | $(OUTPUT)
+	$(call msg,BPF,$@)
+	$(Q)$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH) $(INCLUDES) $(CLANG_BPF_SYS_INCLUDES) -c $(filter %.c,$^) -o $@
+	$(Q)$(LLVM_STRIP) -g $@ # strip useless DWARF info
+
+$(OUTPUT)/%.bpf.o: syscall/%.bpf.c $(LIBBPF_OBJ) $(wildcard %.h) $(VMLINUX) | $(OUTPUT)
+	$(call msg,BPF,$@)
+	$(Q)$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH) $(INCLUDES) $(CLANG_BPF_SYS_INCLUDES) -c $(filter %.c,$^) -o $@
+	$(Q)$(LLVM_STRIP) -g $@ # strip useless DWARF info
+
 
 # Generate BPF skeletons
 $(OUTPUT)/%.skel.h: $(OUTPUT)/%.bpf.o | $(OUTPUT) $(BPFTOOL)
 	$(call msg,GEN-SKEL,$@)
 	$(Q)$(BPFTOOL) gen skeleton $< > $@
 
+
 # Build user-space code
 $(patsubst %,$(OUTPUT)/%.o,$(APPS)): %.o: %.skel.h
 
-$(OUTPUT)/%.o: %.c $(wildcard %.h) | $(OUTPUT)
+$(OUTPUT)/%.o: file/%.c $(wildcard %.h) | $(OUTPUT)
 	$(call msg,CC,$@)
 	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
-trace_helpers.o: trace_helpers.c 
+$(OUTPUT)/%.o: process/%.c $(wildcard %.h) | $(OUTPUT)
+	$(call msg,CC,$@)
 	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
-btf_helpers.o: btf_helpers.c 
+$(OUTPUT)/%.o: syscall/%.c $(wildcard %.h) | $(OUTPUT)
+	$(call msg,CC,$@)
 	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
-uprobe_helpers.o: uprobe_helpers.c 
+
+# Build helper code
+$(OUTPUT)/trace_helpers.o: utils/trace_helpers.c 
 	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
-syscall_helpers.o: syscall_helpers.c 
+$(OUTPUT)/btf_helpers.o: utils/btf_helpers.c 
 	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
-errno_helpers.o: errno_helpers.c 
+$(OUTPUT)/uprobe_helpers.o: utils/uprobe_helpers.c 
 	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
 
-# Build application binary
-$(APPS): %: $(OUTPUT)/%.o trace_helpers.o btf_helpers.o uprobe_helpers.o syscall_helpers.o errno_helpers.o $(LIBBPF_OBJ) | $(OUTPUT)
+$(OUTPUT)/syscall_helpers.o: utils/syscall_helpers.c 
+	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
+
+$(OUTPUT)/errno_helpers.o: utils/errno_helpers.c 
+	$(Q)$(CC) $(CFLAGS) $(INCLUDES) -c $(filter %.c,$^) -o $@
+
+
+# Build application binary //trace_helpers.o btf_helpers.o uprobe_helpers.o syscall_helpers.o errno_helpers.o 
+$(APPS): %: $(OUTPUT)/%.o $(COMMON_OBJ) $(LIBBPF_OBJ) | $(OUTPUT)
 	$(call msg,BINARY,$@)
 	$(Q)$(CC) $(CFLAGS) $^ -lelf -lz -o $@
+
 
 # delete failed targets
 .DELETE_ON_ERROR:

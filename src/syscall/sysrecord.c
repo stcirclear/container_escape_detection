@@ -1,4 +1,4 @@
-#include "syscall_helpers.h"
+#include "../utils/syscall_helpers.h"
 #include <sys/syscall.h>
 #include <argp.h>
 #include <bpf/bpf.h>
@@ -10,24 +10,23 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "syscall.h"
-#include "syscall.skel.h"
+#include "sysrecord.h"
+#include "sysrecord.skel.h"
 
 struct syscall_env
 {
-  bool verbose;
-  volatile bool *exiting;
+    bool verbose;
+    volatile bool *exiting;
 
-  char *cgroupspath;
-  // file cgroup
-  bool filter_cg;
-  pid_t target_pid;
-  // the min sample duration in ms
-  long min_duration_ms;
-  // the times syscall a process is sampled
-  unsigned char filter_report_times;
+    char *cgroupspath;
+    // file cgroup
+    bool filter_cg;
+    pid_t target_pid;
+    // the min sample duration in ms
+    long min_duration_ms;
+    // the times syscall a process is sampled
+    unsigned char filter_report_times;
 };
-
 
 static struct syscall_env syscall_env = {0};
 
@@ -67,7 +66,7 @@ static int handle_event(void *ctx, void *data, size_t data_sz)
 int main(int argc, char **argv)
 {
     struct ring_buffer *rb = NULL;
-    struct syscall_bpf *skel;
+    struct sysrecord_bpf *skel;
     int err;
 
     /* Cleaner handling of Ctrl-C */
@@ -92,7 +91,7 @@ int main(int argc, char **argv)
     libbpf_set_print(libbpf_print_fn);
 
     /* Load and verify BPF application */
-    skel = syscall_bpf__open();
+    skel = sysrecord_bpf__open();
     if (!skel)
     {
         fprintf(stderr, "Failed to open and load BPF skeleton\n");
@@ -133,7 +132,7 @@ int main(int argc, char **argv)
     }
 
     /* Load & verify BPF programs */
-    err = syscall_bpf__load(skel);
+    err = sysrecord_bpf__load(skel);
     if (err)
     {
         fprintf(stderr, "Failed to load and verify BPF skeleton\n");
@@ -141,7 +140,7 @@ int main(int argc, char **argv)
     }
 
     /* Attach tracepoints */
-    err = syscall_bpf__attach(skel);
+    err = sysrecord_bpf__attach(skel);
     if (err)
     {
         fprintf(stderr, "Failed to attach BPF skeleton\n");
@@ -176,9 +175,8 @@ int main(int argc, char **argv)
 cleanup:
     /* Clean up */
     ring_buffer__free(rb);
-    syscall_bpf__destroy(skel);
-	free_syscall_names();
-    
+    sysrecord_bpf__destroy(skel);
+    free_syscall_names();
 
     return err < 0 ? -err : 0;
 }

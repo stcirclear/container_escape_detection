@@ -16,29 +16,31 @@ const volatile bool filter_failed = false;
 const volatile int filter_errno = false;
 const volatile pid_t filter_pid = 0;
 
-struct {
+struct
+{
 	__uint(type, BPF_MAP_TYPE_CGROUP_ARRAY);
 	__type(key, u32);
 	__type(value, u32);
 	__uint(max_entries, 1);
 } cgroup_map SEC(".maps");
 
-struct {
+struct
+{
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__uint(max_entries, MAX_ENTRIES);
 	__type(key, u32);
 	__type(value, u64);
 } start SEC(".maps");
 
-struct {
+struct
+{
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__uint(max_entries, MAX_ENTRIES);
 	__type(key, u32);
 	__type(value, struct data_t);
 } data SEC(".maps");
 
-static __always_inline
-void save_proc_name(struct data_t *val)
+static __always_inline void save_proc_name(struct data_t *val)
 {
 	struct task_struct *current = (void *)bpf_get_current_task();
 
@@ -93,7 +95,8 @@ int sys_exit(struct trace_event_raw_sys_exit *args)
 	if (filter_errno && args->ret != -filter_errno)
 		return 0;
 
-	if (measure_latency) {
+	if (measure_latency)
+	{
 		start_ts = bpf_map_lookup_elem(&start, &tid);
 		if (!start_ts)
 			return 0;
@@ -102,7 +105,8 @@ int sys_exit(struct trace_event_raw_sys_exit *args)
 
 	key = (count_by_process) ? pid : args->id;
 	val = bpf_map_lookup_or_try_init(&data, &key, &zero);
-	if (val) {
+	if (val)
+	{
 		__sync_fetch_and_add(&val->count, 1);
 		if (count_by_process)
 			save_proc_name(val);

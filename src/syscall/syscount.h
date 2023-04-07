@@ -7,7 +7,8 @@
 
 #define TASK_COMM_LEN 16
 
-struct data_t {
+struct data_t
+{
 	__u64 count;
 	__u64 total_ns;
 	char comm[TASK_COMM_LEN];

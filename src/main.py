@@ -5,6 +5,7 @@ import os
 import sys
 import json
 import subprocess
+from multiprocessing import Process
 
 TMP_OUTPUT = "output.txt"
 JSON_OUTPUT = "dockerinfo.json"
@@ -60,19 +61,29 @@ def get_dockerinfo():
 
 def start_monitor(pid):
 	# syscount
-	cmd = f"sudo ./syscount -d 10 -p {pid}"
-	exec_command(cmd, os.getcwd())
+	cmd = f"sudo ./syscount -d 10 -p {pid} > syscount.txt"
+	p1 = Process(target = exec_command, args = (cmd, ))
+	p1.start()
+	# exec_command(cmd, os.getcwd())
 
-	# opensnoop, buggy!!!
-	cmd = f"sudo ./opensnoop -d 10 -p {pid}"
-	exec_command(cmd, os.getcwd())
+	# exec, buggy!!! write when ctrl+c, this is not correct
+	cmd = f"sudo ./execsnoop -n ls > execsnoop.txt"
+	p2 = Process(target = exec_command, args = (cmd, ))
+	p2.start()
+	# exec_command(cmd, os.getcwd())
+
+	# opensnoop, buggy!!! can't trace the open in container
+	cmd = f"sudo ./opensnoop -d 10 -p {pid} > opensnoop.txt"
+	p3 = Process(target = exec_command, args = (cmd, ))
+	p3.start()
+	# exec_command(cmd, os.getcwd())
 
 
 def main():
 	# get docker info
 	get_dockerinfo()
 	# start monitor：parse json, and use container-id/pid as input
-	start_monitor(0)
+	start_monitor(76872)
 	# ...
 
 

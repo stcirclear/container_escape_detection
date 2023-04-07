@@ -2,5 +2,9 @@
 /execsnoop
 /opensnoop
 /syscount
+/filerecord
+/procrecord
+/sysrecord
 /*.o
 /dockerinfo.json
+/*.txt
