@@ -5,6 +5,7 @@
 /filerecord
 /procrecord
 /sysrecord
+/seccomp/seccomp.json
 /*.o
 /dockerinfo.json
 /*.txt
