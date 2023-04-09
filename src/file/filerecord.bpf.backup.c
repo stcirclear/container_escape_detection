@@ -55,7 +55,6 @@ static int probe_entry(struct pt_regs *ctx, struct file *file, size_t count, enu
 	{
 		bpf_map_update_elem(&entries, &key, &zero_value, BPF_ANY);
 		valuep = bpf_map_lookup_elem(&entries, &key);
-		// 是否缺少map update？？
 		if (!valuep)
 			return 0;
 		valuep->pid = pid;

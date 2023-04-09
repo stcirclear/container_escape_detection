@@ -17,7 +17,7 @@ namespaces="cgroup ipc mnt net pid user uts"
 
 printf "%-14s %-20s %6s %-16s" "CONTAINER-ID" "NAME" "PID" "PATH"
 for n in $namespaces; do
-    printf " %-10s" $(echo $n | tr a-z A-Z)
+	printf " %-10s" $(echo $n | tr a-z A-Z)
 done
 echo
 
@@ -26,29 +26,29 @@ pid=1
 read name < /proc/$pid/comm
 printf "%-14s %-20.20s %6d %-16.16s" "host" $(hostname) $pid $name
 for n in $namespaces; do
-    id=$(stat --format="%N" /proc/$pid/ns/$n)
-    id=${id#*[}
-    id=${id%]*}
-    printf " %-10s" "$id"
+	id=$(stat --format="%N" /proc/$pid/ns/$n)
+	id=${id#*[}
+	id=${id%]*}
+	printf " %-10s" "$id"
 done
 echo
 
 # print containers
 for UUID in $(docker ps -q); do
-    # docker info:
-    pid=$(docker inspect -f '{{.State.Pid}}' $UUID)
-    name=$(docker inspect -f '{{.Name}}' $UUID)
-    path=$(docker inspect -f '{{.Path}}' $UUID)
-    name=${name#/}
-    printf "%-14s %-20.20s %6d %-16.16s" $UUID $name $pid $path
+	# docker info:
+	pid=$(docker inspect -f '{{.State.Pid}}' $UUID)
+	name=$(docker inspect -f '{{.Name}}' $UUID)
+	path=$(docker inspect -f '{{.Path}}' $UUID)
+	name=${name#/}
+	printf "%-14s %-20.20s %6d %-16.16s" $UUID $name $pid $path
 
-    # namespace info:
-    for n in $namespaces; do
-        id=$(stat --format="%N" /proc/$pid/ns/$n)
-        id=${id#*[}
-        id=${id%]*}
-        printf " %-10s" "$id"
-    done
-    echo
-    
+	# namespace info:
+	for n in $namespaces; do
+		id=$(stat --format="%N" /proc/$pid/ns/$n)
+		id=${id#*[}
+		id=${id%]*}
+		printf " %-10s" "$id"
+	done
+	echo
+	
 done

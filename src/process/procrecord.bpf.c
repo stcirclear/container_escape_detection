@@ -60,23 +60,17 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	pid = bpf_get_current_pid_tgid() >> 32;
 	ppid = BPF_CORE_READ(task, real_parent, tgid);
 
-	if (target_pid)
+	// 1. 先将target_pid加入pid_map
+	bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
+	// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
+	if (bpf_map_lookup_elem(&pid_map, &ppid))
 	{
-		/* first time: add filter_pid to pid_map */
-		if (bpf_map_lookup_elem(&pid_map, &target_pid) == NULL)
-		{
-			bpf_map_update_elem(&pid_map, &target_pid, &zero, BPF_ANY);
-		}
-
-		/* ppid in pid_map, add pid to pid_map*/
-		if (bpf_map_lookup_elem(&pid_map, &ppid))
-		{
-			bpf_map_update_elem(&pid_map, &pid, &zero, BPF_ANY);
-		}
-		else
-		{
-			return 0;
-		}
+		bpf_map_update_elem(&pid_map, &pid, &pid, BPF_NOEXIST);
+	}
+	// 3. 如果当前进程及父进程都不在pid_map，则返回
+	if (bpf_map_lookup_elem(&pid_map, &pid) == NULL && bpf_map_lookup_elem(&pid_map, &ppid) == NULL)
+	{
+		return 0;
 	}
 
 	e = bpf_map_lookup_elem(&processes, &zero);

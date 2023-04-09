@@ -59,7 +59,7 @@ static int count = 99999999;
 static bool verbose = false;
 
 const char *argp_program_version = "filerecord 1.0";
-const char *argp_program_bug_address = "<1067852565@qq.com>";
+const char *argp_program_bug_address = "https://github.com/stcirclear/container_escape_detection.git";
 const char argp_program_doc[] =
 	"Trace file reads/writes by process.\n"
 	"\n"
@@ -305,27 +305,28 @@ static int print_stat(struct filerecord_bpf *obj, struct files_env env, ring_buf
 
 	prev_key = NULL;
 
-	while (1)
-	{
-		err = bpf_map_get_next_key(fd, prev_key, &key);
-		if (err)
-		{
-			if (errno == ENOENT)
-			{
-				err = 0;
-				break;
-			}
-			fprintf(stderr, "bpf_map_get_next_key failed: %s\n", strerror(errno));
-			return err;
-		}
-		err = bpf_map_delete_elem(fd, &key);
-		if (err)
-		{
-			fprintf(stderr, "bpf_map_delete_elem failed: %s\n", strerror(errno));
-			return err;
-		}
-		prev_key = &key;
-	}
+	// 清空map???
+	// while (1)
+	// {
+	// 	err = bpf_map_get_next_key(fd, prev_key, &key);
+	// 	if (err)
+	// 	{
+	// 		if (errno == ENOENT)
+	// 		{
+	// 			err = 0;
+	// 			break;
+	// 		}
+	// 		fprintf(stderr, "bpf_map_get_next_key failed: %s\n", strerror(errno));
+	// 		return err;
+	// 	}
+	// 	err = bpf_map_delete_elem(fd, &key);
+	// 	if (err)
+	// 	{
+	// 		fprintf(stderr, "bpf_map_delete_elem failed: %s\n", strerror(errno));
+	// 		return err;
+	// 	}
+	// 	prev_key = &key;
+	// }
 	return err;
 }
 
@@ -425,7 +426,6 @@ int main(int argc, char **argv)
 	};
 	env.ctx = &env;
 	exiting = false;
-	// TODO: add bpf_prog_load()... & add structs
 	start_file_tracker(print_event, libbpf_print_fn, env);
 cleanup:
 	return err != 0;

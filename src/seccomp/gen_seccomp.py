@@ -7,6 +7,11 @@ JSON_OUTPUT = "seccomp.json"
 CONFIG_FILE = "seccomp_config.json"
 
 
+def get_syscalls():
+	pass
+
+
+# 生成seccomp文件
 def gen_seccomp():
 	# should get syscalls from monitor
 	syscalls = ["clone", "close", "prctl", "getpid", "write", "unshare",

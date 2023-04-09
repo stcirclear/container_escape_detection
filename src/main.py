@@ -2,7 +2,6 @@
 # Container Escape Monitor
 
 import os
-import sys
 import time
 import json
 import argparse
@@ -14,6 +13,7 @@ JSON_OUTPUT = "dockerinfo.json"
 CONFIG_FILE = "dockerinfo_config.json"
 
 
+# 执行命令行命令
 def exec_command(cmd, cwd=os.getcwd()):
 	# print(f"Run cmd '{cmd}' in '{cwd}'")
 	container_id = ""
@@ -34,6 +34,7 @@ def exec_command(cmd, cwd=os.getcwd()):
 	return container_id
 
 
+# 使用脚本dockerpsns.sh获取docker信息
 # def get_dockerinfo():
 # 	cmd = f"sudo bash dockerpsns.sh > {TMP_OUTPUT}"
 # 	exec_command(cmd, os.getcwd())
@@ -66,6 +67,7 @@ def exec_command(cmd, cwd=os.getcwd()):
 # 	os.remove(TMP_OUTPUT)
 
 
+# 将container id转换成container的pid
 def containerid_to_pid(container_id):
 	cmd = f"sudo bash dockerpsns.sh > {TMP_OUTPUT}"
 	exec_command(cmd, os.getcwd())
@@ -83,6 +85,7 @@ def containerid_to_pid(container_id):
 	return pid
 
 
+# 新建容器
 def start_container(cmd):
 	# p = Process(target=exec_command, args=(cmd, ))
 	# p.start()
@@ -90,6 +93,7 @@ def start_container(cmd):
 	return container_id
 
 
+# 启动监视器
 def start_monitor(pid):
 	# syscount
 	cmd = f"sudo ./syscount -d 10 -p {pid} > syscount.txt"
@@ -142,6 +146,7 @@ def main():
 		# TODO: 给1s的容器创建时间
 		# time.sleep(1)
 		pid = containerid_to_pid(container_id)
+		print(pid)
 		# 启动monitor
 		# start_monitor(pid)
 
