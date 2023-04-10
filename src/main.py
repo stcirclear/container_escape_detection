@@ -1,5 +1,7 @@
 #!/bin/python
-# Container Escape Monitor
+# coding=utf-8
+
+### Container Escape Monitor
 
 import os
 import time
@@ -94,26 +96,27 @@ def start_container(cmd):
 
 
 # 启动监视器
-def start_monitor(pid):
-	# syscount
-	cmd = f"sudo ./syscount -d 10 -p {pid} > syscount.txt"
+def start_monitor(pid, action):
+	# sysrecord
+	cmd = f"sudo ./sysrecord -p {pid} > sysrecord.txt"
 	p1 = Process(target=exec_command, args=(cmd, ))
 	p1.start()
 
 	# exec, buggy!!! write when ctrl+c, this is not correct
-	cmd = f"sudo ./execsnoop -n ls > execsnoop.txt"
+	cmd = f"sudo ./opensnoop -a {action} -p {pid} > opensnoop.txt"
 	p2 = Process(target=exec_command, args=(cmd, ))
 	p2.start()
 
-	# opensnoop, buggy!!! can't trace the open in container
-	cmd = f"sudo ./opensnoop -d 10 -p {pid} > opensnoop.txt"
+	# procrecord
+	cmd = f"sudo ./procrecord -a {action} -p {pid} > procrecord.txt"
 	p3 = Process(target=exec_command, args=(cmd, ))
 	p3.start()
 
-# TODO: 添加是否进行实时拦截or告警的参数
+
 def parse_args():
 	parser = argparse.ArgumentParser(description='Container Escape Monitor.')
 
+	parser.add_argument('-a', '--action', action='store', help='monitor action', choices=['alert', 'intercept'], required=True)
 	# 添加参数
 	subparsers = parser.add_subparsers(help='sub-command help')
 	parser_a = subparsers.add_parser('monitor', help='monitor mode')
@@ -133,12 +136,13 @@ def main():
 	# get_dockerinfo()
 	pid = 0
 	args = parse_args()
-	if hasattr(args, 'pid'):
+	if hasattr(args, 'pid') and hasattr(args, 'action'):
 		pid = int(args.pid)
+		action = args.action
 		print(pid)
 		# 启动monitor
-		# start_monitor(pid)
-	else:
+		# start_monitor(pid, action)
+	elif hasattr(args, 'command') and hasattr(args, 'action'):
 		# 需要假设 **待运行容器的seccomp.json文件已经生成好**,
 		# 在docker run后添加“--security-opt seccomp=seccomp.json”
 		str_list = args.command.split(' ')
@@ -147,9 +151,10 @@ def main():
 		# TODO: 给1s的容器创建时间
 		# time.sleep(1)
 		pid = containerid_to_pid(container_id)
+		action = args.action
 		print(pid)
 		# 启动monitor
-		# start_monitor(pid)
+		# start_monitor(pid, action)
 
 
 if __name__ == '__main__':

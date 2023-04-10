@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	skel->rodata->filter_pid = syscall_env.target_pid;
+	skel->rodata->target_pid = syscall_env.target_pid;
 	skel->rodata->filter_cg = syscall_env.filter_cg;
 	/* Parameterize BPF code with minimum duration parameter */
 	skel->rodata->min_duration_ns = syscall_env.min_duration_ms * 1000000ULL;
