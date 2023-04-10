@@ -89,8 +89,8 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	strftime(ts, sizeof(ts), "%H:%M:%S", tm);
 
 	syscall_name(e->syscall_id, syscall_name_buf, sizeof(syscall_name_buf));
-	printf("%-8s %-16s %-7d %-7d [%lu] %u\t%s\t%d\n",
-		   ts, e->comm, e->pid, e->ppid, e->mntns, e->syscall_id, syscall_name_buf, e->occur_times);
+	printf("%-8s %-16s %-7d %-7d [%lu] %-10u %-15s\n",
+		   ts, e->comm, e->pid, e->ppid, e->mntns, e->syscall_id, syscall_name_buf);
 
 	return;
 }
@@ -112,8 +112,6 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 	case 'p':
 		errno = 0;
 		pid = atoi(arg);
-		// pid = 3860;
-		// pid = strtol(arg, NULL, 10);
 		if (errno || pid < 0 || pid >= INT_MAX)
 		{
 			fprintf(stderr, "Invalid PID %s\n", arg);
@@ -156,8 +154,8 @@ int main(int argc, char **argv)
 	signal(SIGTERM, sig_handler);
 
 	/* syscall events */
-	printf("%-8s %-5s %-16s %-7s %-7s %s\n",
-		   "TIME", "EVENT", "COMM", "PID", "PPID", "SYSCALL_ID");
+	printf("%-8s %-16s %-7s %-7s %-12s %-10s %-15s\n",
+		   "TIME", "COMM", "PID", "PPID", "MNT_NS", "SYSCALL_ID", "SYSCALL_NAME");
 
 	syscall_env.exiting = &exiting;
 

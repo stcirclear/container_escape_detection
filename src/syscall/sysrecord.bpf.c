@@ -73,7 +73,6 @@ void __always_inline submit_event(void *ctx, struct task_struct *task, u32 pid, 
 	event->occur_times = times;
 	bpf_get_current_comm(&event->comm, sizeof(event->comm));
 
-	// bpf_ringbuf_submit(event, 0);
 	bpf_perf_event_output(ctx, &syscall_event_pb, BPF_F_CURRENT_CPU, event, sizeof(*event));
 }
 
@@ -99,10 +98,11 @@ int sys_enter(struct trace_event_raw_sys_enter *args)
 	{
 		/* first time: add filter_pid to pid_map */
 		u32 zero = 0;
+		pid_t target_pid = filter_pid;
 		// TODO:新建一个变量，不要修改这个filter_pid？？？
-		if (bpf_map_lookup_elem(&pid_map, &filter_pid) == NULL)
+		if (bpf_map_lookup_elem(&pid_map, &target_pid) == NULL)
 		{
-			bpf_map_update_elem(&pid_map, &filter_pid, &zero, BPF_ANY);
+			bpf_map_update_elem(&pid_map, &target_pid, &zero, BPF_ANY);
 		}
 
 		/* ppid in pid_map, add pid to pid_map*/

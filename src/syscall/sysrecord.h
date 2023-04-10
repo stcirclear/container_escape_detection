@@ -14,7 +14,6 @@ struct syscall_event
 	char comm[SYSCALL_TASK_COMM_LEN];
 
 	// long unsigned int args[6];
-	unsigned char occur_times;
 };
 
 #endif /* __BOOTSTRAP_H */
