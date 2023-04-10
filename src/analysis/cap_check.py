@@ -56,6 +56,7 @@ def cap_check(p1, p2):
 	print("OK")
 
 
+# TODO: add namespace check
 def main():
 	cap_check(8662, 1)
 

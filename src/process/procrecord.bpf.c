@@ -60,6 +60,7 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	pid = bpf_get_current_pid_tgid() >> 32;
 	ppid = BPF_CORE_READ(task, real_parent, tgid);
 
+	// TODO: 分析进程权限关系
 	// 1. 先将target_pid加入pid_map
 	bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
 	// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map

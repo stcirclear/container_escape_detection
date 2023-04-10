@@ -110,7 +110,7 @@ def start_monitor(pid):
 	p3 = Process(target=exec_command, args=(cmd, ))
 	p3.start()
 
-
+# TODO: 添加是否进行实时拦截or告警的参数
 def parse_args():
 	parser = argparse.ArgumentParser(description='Container Escape Monitor.')
 
@@ -135,6 +135,7 @@ def main():
 	args = parse_args()
 	if hasattr(args, 'pid'):
 		pid = int(args.pid)
+		print(pid)
 		# 启动monitor
 		# start_monitor(pid)
 	else:

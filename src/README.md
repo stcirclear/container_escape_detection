@@ -1,9 +1,14 @@
 # Source code
 
 目前移植的有exec监控、open监控、syscall监控三个功能。(后面根据功能再进行补充)
-* [x] process
-* [ ] open
-* [x] syscall
+
+**TASK**
+* [ ] process，添加可选的权限比较机制：capabilities √；namespaces TODO；
+* [ ] open，1.read bug解决；2.添加可选的黑名单机制
+* [ ] syscall，利用sysdig模块收集容器启动时的系统调用，与监控到的运行时系统调用结合，生成seccomp文件
+* [ ] pre-check模块：提取用户输入命令中的镜像名称，用trivy进行扫描
+* [ ] 信息聚合与展示：各模块输出到文件，main.py读取并展示？
+* [ ] main.py：增加 告警or拦截 选项
 
 ## 编译运行
 1. 在主文件夹目录下初始化submodule
