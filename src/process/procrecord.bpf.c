@@ -36,12 +36,8 @@ struct
 	__type(value, pid_t); // PID
 } pid_map SEC(".maps");
 
-<<<<<<< HEAD
 const volatile pid_t filter_pid = 0;
-//  
 
-=======
->>>>>>> 4ebba6dc510892b2b76d101caf3aae2ece327870
 SEC("tracepoint/sched/sched_process_exec")
 int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_exec *ctx)
 {
@@ -58,7 +54,8 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 
 	// TODO: 分析进程权限关系
 	// 如果有传入的参数，则进行过滤，否则不过滤
-	if(filter_pid) {
+	if (filter_pid)
+	{
 		pid_t target_pid = filter_pid;
 		// 1. 先将target_pid加入pid_map
 		bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
@@ -73,7 +70,7 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 			return 0;
 		}
 	}
-	
+
 	if (bpf_map_update_elem(&processes, &pid, &empty_event, BPF_NOEXIST))
 		return 0;
 
@@ -92,57 +89,6 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	bpf_perf_event_output(ctx, &process_event_pb, BPF_F_CURRENT_CPU, e, sizeof(*e));
 	return 0;
 }
-
-/*
-SEC("tracepoint/sched/sched_process_exit")
-int tracepoint__sched__sched_process_exit(struct trace_event_raw_sched_process_template *ctx)
-{
-	struct task_struct *task;
-	struct process_event *e;
-	u64 id;
-	pid_t pid, tid, ppid;
-
-	task = (struct task_struct *)bpf_get_current_task();
-	id = bpf_get_current_pid_tgid();
-	pid = id >> 32;
-	ppid = BPF_CORE_READ(task, real_parent, tgid);
-	tid = (pid_t)id;
-
-	if (filter_pid)
-	{
-		pid_t target_pid = filter_pid;
-		// first time: add filter_pid to pid_map
-		u32 zero = 0;
-		pid_t filter_pid = target_pid;
-		if (bpf_map_lookup_elem(&pid_map, &filter_pid) == NULL)
-		{
-			bpf_map_update_elem(&pid_map, &filter_pid, &zero, BPF_ANY);
-		}
-
-		// ppid in pid_map, add pid to pid_map
-		if (bpf_map_lookup_elem(&pid_map, &ppid))
-		{
-			bpf_map_update_elem(&pid_map, &pid, &zero, BPF_ANY);
-		}
-		else
-		{
-			return 0;
-		}
-	}
-
-	e = bpf_map_lookup_elem(&processes, &pid);
-	if (!e)
-		return 0;
-
-	bpf_get_current_comm(&e->comm, sizeof(e->comm));
-	e->exit_event = true;
-	e->exit_pid_namespace_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
-	e->exit_mount_namespace_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
-
-	bpf_perf_event_output(ctx, &process_event_pb, BPF_F_CURRENT_CPU, e, sizeof(*e));
-	return 0;
-}
-*/
 
 // SEC("tracepoint/sched/sched_process_fork")
 

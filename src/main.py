@@ -9,10 +9,15 @@ import json
 import argparse
 import subprocess
 from multiprocessing import Process
+from terminal_layout.extensions.choice import *
+from terminal_layout import *
 
 TMP_OUTPUT = "output.txt"
 JSON_OUTPUT = "dockerinfo.json"
 CONFIG_FILE = "dockerinfo_config.json"
+FILE_RECORD = "filerecord.txt"
+PROC_RECORD = "procrecord.txt"
+SYS_RECORD = "sysrecord.txt"
 
 
 # 执行命令行命令
@@ -98,19 +103,29 @@ def start_container(cmd):
 # 启动监视器
 def start_monitor(pid, action):
 	# sysrecord
-	cmd = f"sudo ./sysrecord -p {pid} > sysrecord.txt"
-	p1 = Process(target=exec_command, args=(cmd, ))
-	p1.start()
+	# cmd = f"sudo ./sysrecord -p {pid} > {SYS_RECORD}"
+	# p1 = Process(target=exec_command, args=(cmd, ))
+	# p1.start()
 
 	# exec, buggy!!! write when ctrl+c, this is not correct
-	cmd = f"sudo ./opensnoop -a {action} -p {pid} > opensnoop.txt"
-	p2 = Process(target=exec_command, args=(cmd, ))
-	p2.start()
+	# cmd = f"sudo ./opensnoop -a {action} -p {pid} > opensnoop.txt"
+	# p2 = Process(target=exec_command, args=(cmd, ))
+	# p2.start()
 
-	# procrecord
-	cmd = f"sudo ./procrecord -a {action} -p {pid} > procrecord.txt"
+	# TODO: procrecord,需要改数据传递方式，不用event触发，而是主动轮询map?
+	cmd = f"sudo ./procrecord -a {action} -p {pid}" # > {PROC_RECORD} 2>&1
 	p3 = Process(target=exec_command, args=(cmd, ))
 	p3.start()
+
+
+def display(file):
+	while(True):
+		with open(file) as f:
+			lines = f.readlines()
+			for line in lines:
+				print(line.strip())
+		time.sleep(2)
+		os.system("clear")
 
 
 def parse_args():
@@ -141,9 +156,9 @@ def main():
 	if hasattr(args, 'pid') and hasattr(args, 'action'):
 		pid = int(args.pid)
 		action = args.action
-		print(pid)
+		# print(pid)
 		# 启动monitor
-		# start_monitor(pid, action)
+		start_monitor(pid, action)
 	elif hasattr(args, 'command') and hasattr(args, 'action'):
 		if hasattr(args, 'scan'):
 			if args.scan and args.scan in args.command:
@@ -159,10 +174,24 @@ def main():
 		container_id = start_container(' '.join(str_list))
 		pid = containerid_to_pid(container_id)
 		action = args.action
-		print(pid)
+		# print(pid)
 		# 启动monitor
 		# start_monitor(pid, action)
 
 
 if __name__ == '__main__':
 	main()
+
+	c = Choice('Which part do you want to display? (press <esc> to exit) ',
+			['Filerecord', 'Procrecord', 'Sysrecord'],
+			icon_style=StringStyle(fore=Fore.blue),
+			selected_style=StringStyle(fore=Fore.blue))
+	choice = c.get_choice()
+	if choice:
+		index, value = choice
+		if value == "Filerecord":
+			display(FILE_RECORD)
+		elif value == "Procrecord":
+			display(PROC_RECORD)
+		else:
+			display(SYS_RECORD)
