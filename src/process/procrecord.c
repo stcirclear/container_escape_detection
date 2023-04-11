@@ -70,8 +70,6 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 	case 'p':
 		errno = 0;
 		pid = atoi(arg);
-		// pid = 3860;
-		// pid = strtol(arg, NULL, 10);
 		if (errno || pid < 0 || pid >= INT_MAX)
 		{
 			fprintf(stderr, "Invalid PID %s\n", arg);
@@ -101,7 +99,7 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 {
 	const struct process_event *e = data;
 
-	printf("%-16s %-6d %-6d %s\n", e->comm, e->pid, e->ppid, e->filename);
+	printf("%-16s %-6d %-6d [%u] [%u] %s\n", e->comm, e->pid, e->ppid, e->pid_namespace_id, e->mount_namespace_id, e->filename);
 }
 
 static void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
@@ -150,7 +148,7 @@ int main(int argc, char **argv)
 	}
 
 	/* initialize global data (filtering options) */
-	obj->rodata->target_pid = process_env.target_pid;
+	obj->rodata->filter_pid = process_env.target_pid;
 
 	err = procrecord_bpf__load(obj);
 	if (err)
@@ -166,7 +164,7 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	printf("%-16s %-6s %-6s %3s %s\n", "PCOMM", "PID", "PPID", "RET", "ARGS");
+	printf("%-16s %-6s %-6s %-10s %-10s %3s %s\n", "PCOMM", "PID", "PPID", "PID_NS", "MNT_NS", "RET", "ARGS");
 
 	/* setup event callbacks */
 	pb = perf_buffer__new(bpf_map__fd(obj->maps.process_event_pb), PERF_BUFFER_PAGES,

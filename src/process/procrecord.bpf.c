@@ -21,9 +21,9 @@ struct
 
 struct
 {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__uint(max_entries, 1);
-	__type(key, u32);
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, MAX_ENTRIES);
+	__type(key, pid_t);
 	__type(value, struct process_event);
 } processes SEC(".maps");
 
@@ -43,8 +43,8 @@ struct
 	__type(value, pid_t); // PID
 } pid_map SEC(".maps");
 
-const pid_t target_pid = 0;
-//  volatile
+const volatile pid_t filter_pid = 0;
+//  
 
 SEC("tracepoint/sched/sched_process_exec")
 int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_exec *ctx)
@@ -61,20 +61,26 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	ppid = BPF_CORE_READ(task, real_parent, tgid);
 
 	// TODO: 分析进程权限关系
-	// 1. 先将target_pid加入pid_map
-	bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
-	// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
-	if (bpf_map_lookup_elem(&pid_map, &ppid))
-	{
-		bpf_map_update_elem(&pid_map, &pid, &pid, BPF_NOEXIST);
+	if(filter_pid) {
+		pid_t target_pid = filter_pid;
+		// 1. 先将target_pid加入pid_map
+		bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
+		// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
+		if (bpf_map_lookup_elem(&pid_map, &ppid))
+		{
+			bpf_map_update_elem(&pid_map, &pid, &pid, BPF_NOEXIST);
+		}
+		// 3. 如果当前进程及父进程都不在pid_map，则返回
+		if (bpf_map_lookup_elem(&pid_map, &pid) == NULL && bpf_map_lookup_elem(&pid_map, &ppid) == NULL)
+		{
+			return 0;
+		}
 	}
-	// 3. 如果当前进程及父进程都不在pid_map，则返回
-	if (bpf_map_lookup_elem(&pid_map, &pid) == NULL && bpf_map_lookup_elem(&pid_map, &ppid) == NULL)
-	{
+	
+	if (bpf_map_update_elem(&processes, &pid, &empty_event, BPF_NOEXIST))
 		return 0;
-	}
 
-	e = bpf_map_lookup_elem(&processes, &zero);
+	e = bpf_map_lookup_elem(&processes, &pid);
 	if (!e)
 		return 0;
 
@@ -84,14 +90,14 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	e->ppid = ppid;
 	fname_off = ctx->__data_loc_filename & 0xFFFF;
 	bpf_probe_read_str(e->filename, sizeof(e->filename), (void *)ctx + fname_off);
-
-	bpf_printk("hello, world.\n");
-	bpf_printk("%s %d\n", e->comm, e->pid);
-
+	e->pid_namespace_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
+	e->mount_namespace_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
+	// bpf_map_update_elem(&processes, &pid, e, BPF_NOEXIST);
 	bpf_perf_event_output(ctx, &process_event_pb, BPF_F_CURRENT_CPU, e, sizeof(*e));
 	return 0;
 }
 
+/*
 SEC("tracepoint/sched/sched_process_exit")
 int tracepoint__sched__sched_process_exit(struct trace_event_raw_sched_process_template *ctx)
 {
@@ -106,8 +112,9 @@ int tracepoint__sched__sched_process_exit(struct trace_event_raw_sched_process_t
 	ppid = BPF_CORE_READ(task, real_parent, tgid);
 	tid = (pid_t)id;
 
-	if (target_pid)
+	if (filter_pid)
 	{
+		pid_t target_pid = filter_pid;
 		// first time: add filter_pid to pid_map
 		u32 zero = 0;
 		if (bpf_map_lookup_elem(&pid_map, &target_pid) == NULL)
@@ -132,11 +139,13 @@ int tracepoint__sched__sched_process_exit(struct trace_event_raw_sched_process_t
 
 	bpf_get_current_comm(&e->comm, sizeof(e->comm));
 	e->exit_event = true;
-	e->prio = ctx->prio; // priority
+	e->exit_pid_namespace_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
+	e->exit_mount_namespace_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
 
 	bpf_perf_event_output(ctx, &process_event_pb, BPF_F_CURRENT_CPU, e, sizeof(*e));
 	return 0;
 }
+*/
 
 // SEC("tracepoint/sched/sched_process_fork")
 
