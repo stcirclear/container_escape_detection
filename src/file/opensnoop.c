@@ -280,13 +280,13 @@ int main(int argc, char **argv)
 	obj->rodata->targ_uid = env.uid;
 	obj->rodata->targ_failed = env.failed;
 
-	/* aarch64 and riscv64 don't have open syscall */
+	/* aarch64 and riscv64 don't have open syscall 
 	if (!tracepoint_exists("syscalls", "sys_enter_open"))
 	{
 		bpf_program__set_autoload(obj->progs.tracepoint__syscalls__sys_enter_open, false);
 		bpf_program__set_autoload(obj->progs.tracepoint__syscalls__sys_exit_open, false);
 	}
-
+*/
 	err = opensnoop_bpf__load(obj);
 	if (err)
 	{
