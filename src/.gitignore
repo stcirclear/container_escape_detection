@@ -9,3 +9,4 @@
 /*.o
 /dockerinfo.json
 /*.txt
+/trivy
