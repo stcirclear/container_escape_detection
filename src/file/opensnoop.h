@@ -9,6 +9,7 @@
 struct args_t {
 	const char *fname;
 	int flags;
+	struct file_handle * handle;
 };
 
 struct event {

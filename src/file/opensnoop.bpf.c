@@ -61,11 +61,21 @@ int tracepoint__syscalls__sys_enter_open(struct trace_event_raw_sys_enter *ctx)
 	/* store arg info for later lookup */
 	if (trace_allowed(tgid, pid))
 	{
-		struct args_t args = {};
-		args.fname = (const char *)ctx->args[0];
-		args.flags = (int)ctx->args[1];
-		bpf_map_update_elem(&start, &pid, &args, 0);
+		struct event e = {};
+		// struct args_t args = {};
+		// args.fname = (const char *)ctx->args[0];
+		// args.flags = (int)ctx->args[1];
+		// bpf_map_update_elem(&start, &pid, &args, 0);
+		e.pid = pid;
+		e.uid = bpf_get_current_uid_gid();
+		bpf_get_current_comm(&e.comm, sizeof(e.comm));
+		bpf_probe_read_user_str(&e.fname, sizeof(e.fname), (const char *)ctx->args[0]);
+		e.flags = (int)ctx->args[1];
+		bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU,
+					&e, sizeof(e));
 	}
+	
+
 	return 0;
 }
 // open_by_handle_at
@@ -80,14 +90,42 @@ int tracepoint__syscalls__sys_enter_openat(struct trace_event_raw_sys_enter *ctx
 	/* store arg info for later lookup */
 	if (trace_allowed(tgid, pid))
 	{
+		struct event e = {};
+		// struct args_t args = {};
+		// args.fname = (const char *)ctx->args[0];
+		// args.flags = (int)ctx->args[1];
+		// bpf_map_update_elem(&start, &pid, &args, 0);
+		e.pid = pid;
+		e.uid = bpf_get_current_uid_gid();
+		bpf_get_current_comm(&e.comm, sizeof(e.comm));
+		bpf_probe_read_user_str(&e.fname, sizeof(e.fname), (const char *)ctx->args[1]);
+		e.flags = (int)ctx->args[2];
+		bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU,
+					&e, sizeof(e));
+	}
+	
+	return 0;
+}
+
+/*
+SEC("tracepoint/syscalls/sys_enter_open_by_handle_at")
+int tracepoint__syscalls__sys_enter_open_by_handle_at(struct trace_event_raw_sys_enter *ctx)
+{
+	u64 id = bpf_get_current_pid_tgid();
+	u32 tgid = id >> 32;
+	u32 pid = id;
+
+	if (trace_allowed(tgid, pid))
+	{
 		struct args_t args = {};
-		args.fname = (const char *)ctx->args[1];
+		args.file_handle = (struct file_handle *)ctx->args[1];
 		args.flags = (int)ctx->args[2];
 		bpf_map_update_elem(&start, &pid, &args, 0);
 	}
 	return 0;
 }
-
+*/
+/*
 static __always_inline int trace_exit(struct trace_event_raw_sys_exit *ctx)
 {
 	struct event event = {};
@@ -98,12 +136,12 @@ static __always_inline int trace_exit(struct trace_event_raw_sys_exit *ctx)
 
 	ap = bpf_map_lookup_elem(&start, &pid);
 	if (!ap)
-		return 0; /* missed entry */
+		return 0; // missed entry
 	ret = ctx->ret;
 	if (targ_failed && ret >= 0)
-		goto cleanup; /* want failed only */
+		goto cleanup; // want failed only
 
-	/* event data */
+	// event data
 	event.pid = bpf_get_current_pid_tgid() >> 32;
 	event.uid = bpf_get_current_uid_gid();
 	bpf_get_current_comm(&event.comm, sizeof(event.comm));
@@ -113,11 +151,11 @@ static __always_inline int trace_exit(struct trace_event_raw_sys_exit *ctx)
 
 	bpf_get_stack(ctx, &stack, sizeof(stack),
 				  BPF_F_USER_STACK);
-	/* Skip the first address that is usually the syscall it-self */
+	// Skip the first address that is usually the syscall it-self 
 	event.callers[0] = stack[1];
 	event.callers[1] = stack[2];
 
-	/* emit event */
+	// emit event
 	bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU,
 						  &event, sizeof(event));
 
@@ -137,5 +175,5 @@ int tracepoint__syscalls__sys_exit_openat(struct trace_event_raw_sys_exit *ctx)
 {
 	return trace_exit(ctx);
 }
-
+*/
 char LICENSE[] SEC("license") = "GPL";
