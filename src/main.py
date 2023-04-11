@@ -125,6 +125,8 @@ def parse_args():
 	parser_b = subparsers.add_parser('run', help='run mode')
 	parser_b.add_argument('-c', '--command', action='store',
 						  help='container run command', required=True)
+	parser_b.add_argument('-s', '--scan', action='store',
+						  help='scan the image or not')
 
 	# 解析参数
 	args = parser.parse_args()
@@ -143,13 +145,18 @@ def main():
 		# 启动monitor
 		# start_monitor(pid, action)
 	elif hasattr(args, 'command') and hasattr(args, 'action'):
-		# 需要假设 **待运行容器的seccomp.json文件已经生成好**,
-		# 在docker run后添加“--security-opt seccomp=seccomp.json”
+		if hasattr(args, 'scan'):
+			if args.scan and args.scan in args.command:
+				print("SCANNING THE IMAGE")
+				exec_command(f"./trivy image {args.scan} > image.txt 2>&1", os.getcwd())
+			elif args.scan and args.scan not in args.command:
+				print("wrong image name")
+				return
+
 		str_list = args.command.split(' ')
+		# 在docker run后添加“--security-opt seccomp=seccomp.json”
 		# str_list.insert(3, "--security-opt seccomp=seccomp.json")
 		container_id = start_container(' '.join(str_list))
-		# TODO: 给1s的容器创建时间
-		# time.sleep(1)
 		pid = containerid_to_pid(container_id)
 		action = args.action
 		print(pid)
