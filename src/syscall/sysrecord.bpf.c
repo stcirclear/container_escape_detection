@@ -53,7 +53,7 @@ struct
 
 const volatile bool filter_cg = false;
 const volatile unsigned char filter_report_times = 0;
-const volatile pid_t filter_pid = 0;
+const volatile pid_t target_pid = 0;
 const volatile unsigned long long min_duration_ns = 0;
 volatile unsigned long long last_ts = 0;
 
@@ -75,15 +75,14 @@ int sys_enter(struct trace_event_raw_sys_enter *args)
 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 	u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
 
-	if (filter_pid)
+	if (target_pid)
 	{
 		/* first time: add filter_pid to pid_map */
 		u32 zero = 0;
-		pid_t target_pid = filter_pid;
-		// TODO:新建一个变量，不要修改这个filter_pid？？？
-		if (bpf_map_lookup_elem(&pid_map, &target_pid) == NULL)
+		pid_t filter_pid = target_pid;
+		if (bpf_map_lookup_elem(&pid_map, &filter_pid) == NULL)
 		{
-			bpf_map_update_elem(&pid_map, &target_pid, &zero, BPF_ANY);
+			bpf_map_update_elem(&pid_map, &filter_pid, &zero, BPF_ANY);
 		}
 
 		/* ppid in pid_map, add pid to pid_map*/

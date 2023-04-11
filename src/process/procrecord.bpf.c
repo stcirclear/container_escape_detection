@@ -8,16 +8,9 @@
 
 const volatile bool filter_cg = false;
 const volatile bool ignore_failed = true;
-
 static const struct process_event empty_event = {};
-
-struct
-{
-	__uint(type, BPF_MAP_TYPE_CGROUP_ARRAY);
-	__type(key, u32);
-	__type(value, u32);
-	__uint(max_entries, 1);
-} cgroup_map SEC(".maps");
+const volatile pid_t target_pid = 0;
+// const volatile bool do_intercept = false;
 
 struct
 {
@@ -43,9 +36,12 @@ struct
 	__type(value, pid_t); // PID
 } pid_map SEC(".maps");
 
+<<<<<<< HEAD
 const volatile pid_t filter_pid = 0;
 //  
 
+=======
+>>>>>>> 4ebba6dc510892b2b76d101caf3aae2ece327870
 SEC("tracepoint/sched/sched_process_exec")
 int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_exec *ctx)
 {
@@ -61,6 +57,7 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	ppid = BPF_CORE_READ(task, real_parent, tgid);
 
 	// TODO: 分析进程权限关系
+	// 如果有传入的参数，则进行过滤，否则不过滤
 	if(filter_pid) {
 		pid_t target_pid = filter_pid;
 		// 1. 先将target_pid加入pid_map
@@ -92,7 +89,6 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	bpf_probe_read_str(e->filename, sizeof(e->filename), (void *)ctx + fname_off);
 	e->pid_namespace_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
 	e->mount_namespace_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
-	// bpf_map_update_elem(&processes, &pid, e, BPF_NOEXIST);
 	bpf_perf_event_output(ctx, &process_event_pb, BPF_F_CURRENT_CPU, e, sizeof(*e));
 	return 0;
 }
@@ -117,9 +113,10 @@ int tracepoint__sched__sched_process_exit(struct trace_event_raw_sched_process_t
 		pid_t target_pid = filter_pid;
 		// first time: add filter_pid to pid_map
 		u32 zero = 0;
-		if (bpf_map_lookup_elem(&pid_map, &target_pid) == NULL)
+		pid_t filter_pid = target_pid;
+		if (bpf_map_lookup_elem(&pid_map, &filter_pid) == NULL)
 		{
-			bpf_map_update_elem(&pid_map, &target_pid, &zero, BPF_ANY);
+			bpf_map_update_elem(&pid_map, &filter_pid, &zero, BPF_ANY);
 		}
 
 		// ppid in pid_map, add pid to pid_map
