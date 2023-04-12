@@ -86,7 +86,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 	}
 	return 0;
 }
-
+/*
 // 权限比较，函数待优化！！！
 static int cap_check(pid_t p1, pid_t p2)
 {
@@ -147,7 +147,7 @@ static int cap_check(pid_t p1, pid_t p2)
 	pclose(file2);
 	return res;
 }
-
+*/
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
 {
 	if (level == LIBBPF_DEBUG && !process_env.verbose)
@@ -165,8 +165,7 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	// TODO: 在这检查 & 响应
 	FILE *fp;
 	const struct process_event *e = data;
-	int res = cap_check(e->pid, e->ppid);
-	if (res < 0)
+	if (e->cap_err)
 	{
 		if (do_intercept)
 		{
