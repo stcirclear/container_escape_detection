@@ -48,6 +48,7 @@ const char argp_program_doc[] =
 	"   ./procrecord -c CG     # Trace process under cgroupsPath CG\n";
 
 static const struct argp_option opts[] = {
+	{"action", 'a', "ACTION", 0, "do this action when bad things happen"},
 	{"pid", 'p', "PID", 0, "trace this pid and its all child process"},
 	{"cgroup", 'c', "/sys/fs/cgroup/unified", 0, "Trace process in cgroup path"},
 	{NULL, 'h', NULL, OPTION_HIDDEN, "Show the full help"},
@@ -162,6 +163,7 @@ static void sig_handler(int sig)
 static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 {
 	// TODO: 在这检查 & 响应
+	FILE *fp;
 	const struct process_event *e = data;
 	int res = cap_check(e->pid, e->ppid);
 	if (res < 0)
@@ -175,8 +177,14 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 			printf("Do warning\n");
 		}
 	}
-
-	printf("%-16s %-6d %-6d [%u] [%u] %s\n", e->comm, e->pid, e->ppid, e->pid_namespace_id, e->mount_namespace_id, e->filename);
+	fp = fopen("procrecord.txt", "a");
+	if (fp == NULL)
+	{
+		return;
+	}
+	fprintf(fp, "%-16s %-6d %-6d [%u] [%u] %s\n", e->comm, e->pid, e->ppid, e->pid_namespace_id, e->mount_namespace_id, e->filename);
+	fclose(fp);
+	// printf("%-16s %-6d %-6d [%u] [%u] %s\n", e->comm, e->pid, e->ppid, e->pid_namespace_id, e->mount_namespace_id, e->filename);
 }
 
 static void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
@@ -240,8 +248,16 @@ int main(int argc, char **argv)
 		fprintf(stderr, "failed to attach BPF programs\n");
 		goto cleanup;
 	}
-
-	printf("%-16s %-6s %-6s %-10s %-10s %3s %s\n", "PCOMM", "PID", "PPID", "PID_NS", "MNT_NS", "RET", "ARGS");
+	FILE *fp;
+	fp = fopen("procrecord.txt", "a");
+	if (fp == NULL)
+	{
+		return 0;
+	}
+	// printf("ok\n");
+	fprintf(fp, "%-16s %-6s %-6s %-10s %-10s %3s %s\n", "PCOMM", "PID", "PPID", "PID_NS", "MNT_NS", "RET", "ARGS");
+	fclose(fp);
+	// printf("%-16s %-6s %-6s %-10s %-10s %3s %s\n", "PCOMM", "PID", "PPID", "PID_NS", "MNT_NS", "RET", "ARGS");
 
 	/* setup event callbacks */
 	pb = perf_buffer__new(bpf_map__fd(obj->maps.process_event_pb), PERF_BUFFER_PAGES,
