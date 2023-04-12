@@ -107,7 +107,7 @@ int sys_enter(struct trace_event_raw_sys_enter *args)
 
 	event = bpf_map_lookup_elem(&syscalls, &pid);
 	if (!event)
-		return;
+		return 0;
 
 	event->pid = pid;
 	event->ppid = BPF_CORE_READ(task, real_parent, tgid);
