@@ -15,8 +15,16 @@ struct
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__uint(max_entries, MAX_ENTRIES);
 	__type(key, u32);				 // PID
-	__type(value, u32); // syscall IDs
+	__type(value, u8[MAX_SYSCALLS]); // syscall IDs
 } syscalls SEC(".maps");
+
+struct
+{
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, u32);				 
+	__type(value, struct syscall_event);
+} syscall_heap SEC(".maps");
 
 struct
 {
@@ -53,9 +61,29 @@ struct
 
 const volatile bool filter_cg = false;
 const volatile unsigned char filter_report_times = 0;
-const volatile pid_t target_pid = 0;
+const volatile pid_t filter_pid = 0;
 const volatile unsigned long long min_duration_ns = 0;
 volatile unsigned long long last_ts = 0;
+
+void __always_inline submit_event(void* ctx, struct task_struct *task, u32 pid, u64 mntns, u32 syscall_id, unsigned char times) {
+    // submit event to perf buffer
+	struct syscall_event *event;
+	u32 zero = 0;
+	event = bpf_map_lookup_elem(&syscall_heap, &zero);
+	if (!event)
+		return;
+
+	event->pid = pid;
+	event->ppid = BPF_CORE_READ(task, real_parent, tgid);
+	event->mntns = mntns;
+	event->syscall_id = syscall_id;
+	event->occur_times = times;
+	bpf_get_current_comm(&event->comm, sizeof(event->comm));
+
+	bpf_perf_event_output(ctx, &syscall_event_pb, BPF_F_CURRENT_CPU, event, sizeof(*event));
+	
+}
+
 
 SEC("tracepoint/raw_syscalls/sys_enter")
 int sys_enter(struct trace_event_raw_sys_enter *args)
@@ -75,14 +103,15 @@ int sys_enter(struct trace_event_raw_sys_enter *args)
 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
 	u32 ppid = BPF_CORE_READ(task, real_parent, tgid);
 
-	if (target_pid)
+	if (filter_pid)
 	{
 		/* first time: add filter_pid to pid_map */
 		u32 zero = 0;
-		pid_t filter_pid = target_pid;
-		if (bpf_map_lookup_elem(&pid_map, &filter_pid) == NULL)
+		pid_t target_pid = filter_pid;
+		// TODO:新建一个变量，不要修改这个filter_pid？？？
+		if (bpf_map_lookup_elem(&pid_map, &target_pid) == NULL)
 		{
-			bpf_map_update_elem(&pid_map, &filter_pid, &zero, BPF_ANY);
+			bpf_map_update_elem(&pid_map, &target_pid, &zero, BPF_ANY);
 		}
 
 		/* ppid in pid_map, add pid to pid_map*/
@@ -101,21 +130,49 @@ int sys_enter(struct trace_event_raw_sys_enter *args)
 	{
 		return 0;
 	}
-
-	// submit event to perf buffer
-	struct syscall_event *event;
-
-	event = bpf_map_lookup_elem(&syscalls, &pid);
-	if (!event)
-		return 0;
-
-	event->pid = pid;
-	event->ppid = BPF_CORE_READ(task, real_parent, tgid);
-	event->mntns = mntns;
-	event->syscall_id = syscall_id;
-	bpf_get_current_comm(&event->comm, sizeof(event->comm));
-
-	bpf_perf_event_output(args, &syscall_event_pb, BPF_F_CURRENT_CPU, event, sizeof(*event));
+	
+	u8 *const syscall_value = bpf_map_lookup_elem(&syscalls, &pid);
+	if(syscall_value)
+	{
+		if (syscall_value[syscall_id] == 0) {
+            // submit event at first time
+            submit_event(args, task, pid, mntns, syscall_id, 1);
+			syscall_value[syscall_id] = 1;
+            return 0;
+        }
+        else if (filter_report_times){
+            if( syscall_value[syscall_id] >= filter_report_times) {
+                // reach times, submit event
+                submit_event(args, task, pid, mntns, syscall_id, filter_report_times);
+                syscall_value[syscall_id] = 1;
+            } else {
+                syscall_value[syscall_id]++;
+            }
+        } else if (min_duration_ns) {
+            u64 ts = bpf_ktime_get_ns();
+            if (syscall_value[syscall_id] < 255) syscall_value[syscall_id]++;
+            if (ts - last_ts < min_duration_ns)
+                return 0;
+            last_ts = ts;
+            submit_event(args, task, pid, mntns, syscall_id, syscall_value[syscall_id]);
+            syscall_value[syscall_id] = 1;
+        }
+	}
+	else
+	{
+		// 进程刚创建
+		submit_event(args, task, pid, mntns, syscall_id, 1);
+		static const unsigned char init[MAX_SYSCALLS];		
+		bpf_map_update_elem(&syscalls, &pid, &init, BPF_ANY);
+		
+		u8 *const value = bpf_map_lookup_elem(&syscalls, &pid);
+        if (!value)
+        {
+            // Should not happen, we updated the element straight ahead
+            return 0;
+        }
+        value[syscall_id] = 1;
+	}
 	
 	return 0;
 }

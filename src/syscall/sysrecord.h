@@ -7,10 +7,11 @@
 // if target_pid or cgroups is set, this message is all syscalls
 struct syscall_event
 {
-	int pid;
-	int ppid;
+	pid_t pid;
+	pid_t ppid;
 	uint32_t syscall_id;
 	uint64_t mntns;
+	int occur_times;
 	char comm[SYSCALL_TASK_COMM_LEN];
 
 	// long unsigned int args[6];
