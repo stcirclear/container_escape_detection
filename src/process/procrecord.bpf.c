@@ -86,6 +86,7 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 
 	// 用跟踪点上下文中的数据填充e
 	e->cap_err = false;
+	e->fs_err = false;
 	e->pid = pid;
 	e->ppid = ppid;
 	bpf_get_current_comm(&e->comm, sizeof(e->comm));
@@ -93,25 +94,38 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	bpf_probe_read_str(e->filename, sizeof(e->filename), (void *)ctx + fname_off);
 	e->pid_namespace_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
 	e->mount_namespace_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
-
+	
+	// 权限比较,若发生提权事件则cap_err=true
 	kernel_cap_t p_cap = BPF_CORE_READ(task, real_parent, cred, cap_effective);
 	kernel_cap_t cap = BPF_CORE_READ(task, cred, cap_effective);
 	bpf_printk("%s p_cap:%x %x\n", e->comm, p_cap.cap[0], p_cap.cap[1]);
 	bpf_printk("%s   cap:%x %x\n", e->comm, cap.cap[0], cap.cap[1]);
-
-	unsigned int p_pid_ns = BPF_CORE_READ(task, real_parent, nsproxy, pid_ns_for_children, ns.inum);
-	unsigned int p_mnt_ns = BPF_CORE_READ(task, real_parent, nsproxy, mnt_ns, ns.inum);
-	
-	bpf_printk("p_ns:%x %x\n", e->pid_namespace_id, e->mount_namespace_id);
-	bpf_printk("  ns:%x %x\n", p_pid_ns, p_mnt_ns);
-	//bpf_printk("%s %d [%u] p_cap:%u %u\n", e->comm, e->pid, level, p_cap.cap[0], p_cap.cap[1]);
-	//bpf_printk("%s %d [%u]   cap:%u %u\n", e->comm, e->pid, level, cap.cap[0], cap.cap[1]);
-
-	// 权限比较,若发生提权事件则cap_err=true
 	if(p_cap.cap[0] < cap.cap[0] || p_cap.cap[1] < cap.cap[1]) {
 		bpf_printk("!ERROR! pid: %d capability elevated!\n", e->pid);
 		e->cap_err = true;
 	}
+
+	unsigned int p_pid_ns = BPF_CORE_READ(task, real_parent, nsproxy, pid_ns_for_children, ns.inum);
+	unsigned int p_mnt_ns = BPF_CORE_READ(task, real_parent, nsproxy, mnt_ns, ns.inum);
+	bpf_printk("%s p_ns:%u %u\n", e->comm, e->pid_namespace_id, e->mount_namespace_id);
+	bpf_printk("%s   ns:%u %u\n", e->comm, p_pid_ns, p_mnt_ns);
+	if(p_pid_ns != e->pid_namespace_id || p_mnt_ns != e->pid_mnt_id) {
+		bpf_printk("!ERROR! pid: %d namespace changed!\n", e->pid);
+		e->cap_err = true;
+	}
+	
+
+	// fs_struct *fs
+	unsigned long root_ino = BPF_CORE_READ(task, fs, root.dentry, d_inode, i_ino);
+	unsigned long p_root_ino = BPF_CORE_READ(task, real_parent, fs, root.dentry, d_inode, i_ino);
+	bpf_printk("%s p_ino:%lu\n", e->comm, p_root_ino);
+	bpf_printk("%s   ino:%lu\n", e->comm, root_ino);
+	// 工作目录比较
+	if(p_root_ino != root_ino){
+		bpf_printk("!ERROR! pid: %d root fs changed!\n", e->pid);
+		e->fs_err = true;
+	}
+	
 
 	// 发送样本到BPF perfbuf		
 	bpf_perf_event_output(ctx, &process_event_pb, BPF_F_CURRENT_CPU, e, sizeof(*e));

@@ -175,6 +175,11 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 		{
 			printf("Do warning\n");
 		}
+		printf("[ERROR] pid: %d cap changed!\n", e->pid);
+	} else if (e->fs_err) {
+		printf("[ERROR] pid: %d fs changed!\n", e->pid);
+	} else if (e->ns_err) {
+		printf("[ERROR] pid: %d ns changed!\n", e->pid);
 	}
 	fp = fopen("procrecord.txt", "a");
 	if (fp == NULL)

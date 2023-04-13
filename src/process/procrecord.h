@@ -29,6 +29,8 @@ struct process_event
 	char filename[NAME_MAX];
 
 	bool cap_err;
+	bool ns_err;
+	bool fs_err;
 };
 
 #endif /* __PROCRECORD_H */
