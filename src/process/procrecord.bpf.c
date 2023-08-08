@@ -50,7 +50,6 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 {
 	pid_t pid, ppid;
 	char fname_off;
-	char comm[TASK_COMM_LEN];
 	struct task_struct *task;
 	struct process_event *e;
 
