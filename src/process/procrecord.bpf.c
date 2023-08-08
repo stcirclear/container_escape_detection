@@ -61,7 +61,7 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	pid = bpf_get_current_pid_tgid() >> 32;
 	ppid = BPF_CORE_READ(task, real_parent, tgid);
 
-	/* step 2: 分析进程权限关系 */
+	/* step 2: 分析进程是否属于容器 */
 	if (filter_pid)
 	{
 		pid_t target_pid = filter_pid;
