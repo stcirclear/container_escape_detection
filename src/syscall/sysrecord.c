@@ -30,14 +30,14 @@ struct syscall_env
 	char *cgroupspath;
 	// file cgroup
 	bool filter_cg;
-	pid_t target_pid;
+	pid_t filter_pid;
 	// the min sample duration in ms
 	long min_duration_ms;
 	// the times syscall a process is sampled
 	unsigned char filter_report_times;
 } syscall_env = {
 	.min_duration_ms = 100,
-	// .target_pid = 3860
+	// .filter_pid = 3860
 };
 
 #define warn(...) fprintf(stderr, __VA_ARGS__)
@@ -89,7 +89,7 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	strftime(ts, sizeof(ts), "%H:%M:%S", tm);
 
 	syscall_name(e->syscall_id, syscall_name_buf, sizeof(syscall_name_buf));
-	printf("%-8s %-16s %-7d %-7d [%lu] %-10u %-15s\n",
+	printf("%-8s %-16s %-7d %-7d [%u] %-10u %-15s\n",
 		   ts, e->comm, e->pid, e->ppid, e->mntns, e->syscall_id, syscall_name_buf);
 
 	return;
@@ -117,7 +117,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 			fprintf(stderr, "Invalid PID %s\n", arg);
 			argp_usage(state);
 		}
-		syscall_env.target_pid = (int)pid;
+		syscall_env.filter_pid = (int)pid;
 		break;
 	case 'v':
 		syscall_env.verbose = true;
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	skel->rodata->target_pid = syscall_env.target_pid;
+	skel->rodata->filter_pid = syscall_env.filter_pid;
 	skel->rodata->filter_cg = syscall_env.filter_cg;
 	/* Parameterize BPF code with minimum duration parameter */
 	skel->rodata->min_duration_ns = syscall_env.min_duration_ms * 1000000ULL;

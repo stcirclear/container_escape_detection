@@ -160,10 +160,10 @@ static void sig_handler(int sig)
 	exiting = true;
 }
 
+/* 响应函数 */
 static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 {
 	// TODO: 在这检查 & 响应
-	FILE *fp;
 	const struct process_event *e = data;
 	int res = cap_check(e->pid, e->ppid);
 	if (res < 0)
@@ -177,6 +177,8 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 			printf("Do warning\n");
 		}
 	}
+
+	FILE *fp;
 	fp = fopen("procrecord.txt", "a");
 	if (fp == NULL)
 	{
@@ -184,11 +186,13 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	}
 	fprintf(fp, "%-16s %-6d %-6d [%u] [%u] %s\n", e->comm, e->pid, e->ppid, e->pid_namespace_id, e->mount_namespace_id, e->filename);
 	fclose(fp);
+	
 	// printf("%-16s %-6d %-6d [%u] [%u] %s\n", e->comm, e->pid, e->ppid, e->pid_namespace_id, e->mount_namespace_id, e->filename);
 }
 
 static void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
 {
+	printf("Debuge: In handle_lost_event\n");
 	fprintf(stderr, "Lost %llu events on CPU #%d!\n", lost_cnt, cpu);
 }
 
@@ -213,13 +217,13 @@ int main(int argc, char **argv)
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
 
-	// process_env.exiting = &exiting;
+	process_env.exiting = &exiting;
 
-	// if (!process_env.exiting)
-	// {
-	// 	fprintf(stderr, "env.exiting is not set.\n");
-	// 	return -1;
-	// }
+	if (!process_env.exiting)
+	{
+	 	fprintf(stderr, "process_env.exiting is not set.\n");
+	 	return -1;
+	}
 
 	libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
 	/* Set up libbpf errors and debug info callback */
@@ -248,20 +252,25 @@ int main(int argc, char **argv)
 		fprintf(stderr, "failed to attach BPF programs\n");
 		goto cleanup;
 	}
+	
+	// 打开log文件
 	FILE *fp;
 	fp = fopen("procrecord.txt", "a");
 	if (fp == NULL)
 	{
 		return 0;
 	}
-	// printf("ok\n");
+
 	fprintf(fp, "%-16s %-6s %-6s %-10s %-10s %3s %s\n", "PCOMM", "PID", "PPID", "PID_NS", "MNT_NS", "RET", "ARGS");
 	fclose(fp);
+	
 	// printf("%-16s %-6s %-6s %-10s %-10s %3s %s\n", "PCOMM", "PID", "PPID", "PID_NS", "MNT_NS", "RET", "ARGS");
 
 	/* setup event callbacks */
 	pb = perf_buffer__new(bpf_map__fd(obj->maps.process_event_pb), PERF_BUFFER_PAGES,
 						  handle_event, handle_lost_events, NULL, NULL);
+	
+	
 	if (!pb)
 	{
 		err = -errno;
