@@ -21,7 +21,7 @@ struct
 
 struct
 {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(type, BPF_MAP_TYPE_HASH);
 	__uint(max_entries, 1);
 	__type(key, u32);
 	__type(value, struct process_event);
@@ -78,12 +78,14 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 		}
 	}
 
-	if (bpf_map_update_elem(&processes, &pid, &empty_event, BPF_NOEXIST))
+	if(bpf_map_update_elem(&processes, &pid, &empty_event, BPF_NOEXIST))
 		return 0;
 
 	e = bpf_map_lookup_elem(&processes, &pid);
-	if (!e)
+	if (!e) {
+		bpf_printk("Debug: return in lookup\n");
 		return 0;
+	}
 
 	bpf_get_current_comm(&e->comm, sizeof(e->comm));
 	e->exit_event = false;
@@ -93,6 +95,7 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	bpf_probe_read_str(e->filename, sizeof(e->filename), (void *)ctx + fname_off);
 	e->pid_namespace_id = BPF_CORE_READ(task, nsproxy, pid_ns_for_children, ns.inum);
 	e->mount_namespace_id = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
+
 	bpf_perf_event_output(ctx, &process_event_pb, BPF_F_CURRENT_CPU, e, sizeof(*e));
 	return 0;
 }
