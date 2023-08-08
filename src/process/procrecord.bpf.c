@@ -53,7 +53,6 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	char comm[TASK_COMM_LEN];
 	struct task_struct *task;
 	struct process_event *e;
-	u32 zero = 0;
 
 	/* Step 1: 获取进程上下文信息task */
 	task = (struct task_struct *)bpf_get_current_task();
