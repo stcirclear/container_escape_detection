@@ -25,7 +25,7 @@ struct
 	__uint(max_entries, 1);
 	__type(key, u32);
 	__type(value, struct process_event);
-} processes SEC(".maps");
+} processes SEC(".maps");  // 暂存需要提交的事件
 
 struct
 {
@@ -54,13 +54,14 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	struct task_struct *task;
 	struct process_event *e;
 	u32 zero = 0;
+
+	/* Step 1: 获取进程上下文信息task */
 	task = (struct task_struct *)bpf_get_current_task();
 
 	pid = bpf_get_current_pid_tgid() >> 32;
 	ppid = BPF_CORE_READ(task, real_parent, tgid);
 
-	// TODO: 分析进程权限关系
-	// 如果有传入的参数，则进行过滤，否则不过滤
+	/* step 2: 分析进程权限关系 */
 	if (filter_pid)
 	{
 		pid_t target_pid = filter_pid;
@@ -78,14 +79,13 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 		}
 	}
 
+	/* Step 3: 提交到perf buffer*/ 
 	if(bpf_map_update_elem(&processes, &pid, &empty_event, BPF_NOEXIST))
 		return 0;
 
 	e = bpf_map_lookup_elem(&processes, &pid);
-	if (!e) {
-		bpf_printk("Debug: return in lookup\n");
+	if (!e) 
 		return 0;
-	}
 
 	bpf_get_current_comm(&e->comm, sizeof(e->comm));
 	e->exit_event = false;
