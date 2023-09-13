@@ -32,6 +32,10 @@
 
 static volatile sig_atomic_t exiting = 0;
 
+struct file_path {
+    unsigned char path[NAME_MAX];
+};
+
 static struct env
 {
 	pid_t pid;
@@ -44,6 +48,7 @@ static struct env
 	bool extended;
 	bool failed;
 	char *name;
+	bool intercept;
 
 } env = {
 	.uid = INVALID_UID};
@@ -72,6 +77,7 @@ const char argp_program_doc[] =
 	"";
 
 static const struct argp_option opts[] = {
+	{"action", 'a', "ACTION", 0, "Action to take"},
 	{"duration", 'd', "DURATION", 0, "Duration to trace"},
 	{"extended-fields", 'e', NULL, 0, "Print extended fields"},
 	{NULL, 'h', NULL, OPTION_HIDDEN, "Show the full help"},
@@ -90,10 +96,14 @@ static const struct argp_option opts[] = {
 static error_t parse_arg(int key, char *arg, struct argp_state *state)
 {
 	static int pos_args;
-	long int pid, uid, duration;
+	long int tid, uid, duration;
+	pid_t pid = 0;
 
 	switch (key)
 	{
+	case 'a':
+		env.intercept = strcmp(arg, "alert") ? true : false;
+		break;
 	case 'e':
 		env.extended = true;
 		break;
@@ -138,13 +148,13 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 		break;
 	case 't':
 		errno = 0;
-		pid = strtol(arg, NULL, 10);
+		tid = strtol(arg, NULL, 10);
 		if (errno || pid <= 0)
 		{
 			fprintf(stderr, "Invalid TID: %s\n", arg);
 			argp_usage(state);
 		}
-		env.tid = pid;
+		env.tid = tid;
 		break;
 	case 'u':
 		errno = 0;
@@ -196,6 +206,9 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 
 	/* name filtering is currently done in user space */
 	if (env.name && strstr(e->comm, env.name) == NULL)
+		return;
+
+	if (strcmp((const char *)e->fname, "/root/.ash_history") == 0)
 		return;
 
 	/* prepare fields */
@@ -275,18 +288,22 @@ int main(int argc, char **argv)
 	}
 
 	/* initialize global data (filtering options) */
-	obj->rodata->targ_tgid = env.pid;
-	obj->rodata->targ_pid = env.tid;
+	obj->rodata->targ_tgid = env.tid;
+	obj->rodata->targ_pid = env.pid;
 	obj->rodata->targ_uid = env.uid;
 	obj->rodata->targ_failed = env.failed;
+	obj->rodata->intercept = env.intercept;
 
-	/* aarch64 and riscv64 don't have open syscall 
-	if (!tracepoint_exists("syscalls", "sys_enter_open"))
-	{
-		bpf_program__set_autoload(obj->progs.tracepoint__syscalls__sys_enter_open, false);
-		bpf_program__set_autoload(obj->progs.tracepoint__syscalls__sys_exit_open, false);
-	}
-*/
+	// int map_fd = bpf_object__find_map_fd_by_name(obj, "denied_access_files");
+	// const unsigned char* blacknames[7] = {"/home/test.c", "/etc/passwd", "/root/.ssh", "/proc/sys", "/proc/sysrq-trigger", "/sys/kernel", "/proc/sys/kernel"};
+	// for (int i = 0; i < 7; i ++ )
+	// {
+	// 	int idx = i;
+	// 	struct file_path *fp = malloc(sizeof(struct file_path));
+	// 	memcpy(fp->path, blacknames[i], strlen(blacknames[i]));
+	// 	bpf_map_update_elem(map_fd, &idx, fp, 0);
+	// }
+
 	err = opensnoop_bpf__load(obj);
 	if (err)
 	{

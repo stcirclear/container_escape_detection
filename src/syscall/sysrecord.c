@@ -178,17 +178,10 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	skel->rodata->filter_pid = syscall_env.filter_pid;
+	skel->rodata->filter_pid = syscall_env.target_pid;
 	skel->rodata->filter_cg = syscall_env.filter_cg;
-	/* Parameterize BPF code with minimum duration parameter */
-	skel->rodata->min_duration_ns = syscall_env.min_duration_ms * 1000000ULL;
-	if (syscall_env.filter_report_times > 200)
-	{
-		fprintf(stderr, "filter_report_times to large\n");
-		return 1;
-	}
-	skel->rodata->filter_report_times = syscall_env.filter_report_times;
-
+	skel->rodata->filter_report_times = 100;
+	skel->rodata->min_duration_ns = 100;
 	init_syscall_names();
 
 	/* update cgroup path fd to map */

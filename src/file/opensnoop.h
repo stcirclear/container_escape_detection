@@ -21,7 +21,7 @@ struct event {
 	int flags;
 	__u64 callers[2];
 	char comm[TASK_COMM_LEN];
-	char fname[NAME_MAX];
+	unsigned char fname[NAME_MAX];
 };
 
 #endif /* __OPENSNOOP_H */

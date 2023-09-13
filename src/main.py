@@ -9,8 +9,8 @@ import json
 import argparse
 import subprocess
 from multiprocessing import Process
-from terminal_layout.extensions.choice import *
-from terminal_layout import *
+# from terminal_layout.extensions.choice import *
+# from terminal_layout import *
 
 TMP_OUTPUT = "output.txt"
 JSON_OUTPUT = "dockerinfo.json"
@@ -42,36 +42,36 @@ def exec_command(cmd, cwd=os.getcwd()):
 
 
 # 使用脚本dockerpsns.sh获取docker信息
-# def get_dockerinfo():
-# 	cmd = f"sudo bash dockerpsns.sh > {TMP_OUTPUT}"
-# 	exec_command(cmd, os.getcwd())
+def get_dockerinfo():
+	cmd = f"sudo bash dockerpsns.sh > {TMP_OUTPUT}"
+	exec_command(cmd, os.getcwd())
 
-# 	json_data = {"Containers": []}
-# 	with open(TMP_OUTPUT, "r") as f:
-# 		data = f.readlines()
-# 		for item in data[1:]:
-# 			# json
-# 			dict_data = {}
-# 			dict_data['CONTAINER-ID'] = item.split()[0]
-# 			dict_data['NAME'] = item.split()[1]
-# 			dict_data['PID'] = int(item.split()[2])
-# 			dict_data['PATH'] = item.split()[3]
-# 			dict_data['CGROUP'] = item.split()[4]
-# 			dict_data['IPC'] = item.split()[5]
-# 			dict_data['NET'] = item.split()[6]
-# 			dict_data['USER'] = item.split()[7]
-# 			dict_data['UTS'] = item.split()[8]
-# 			json_data['Containers'].append(dict_data)
+	json_data = {"Containers": []}
+	with open(TMP_OUTPUT, "r") as f:
+		data = f.readlines()
+		for item in data[1:]:
+			# json
+			dict_data = {}
+			dict_data['CONTAINER-ID'] = item.split()[0]
+			dict_data['NAME'] = item.split()[1]
+			dict_data['PID'] = int(item.split()[2])
+			dict_data['PATH'] = item.split()[3]
+			dict_data['CGROUP'] = item.split()[4]
+			dict_data['IPC'] = item.split()[5]
+			dict_data['NET'] = item.split()[6]
+			dict_data['USER'] = item.split()[7]
+			dict_data['UTS'] = item.split()[8]
+			json_data['Containers'].append(dict_data)
 
-# 	with open(CONFIG_FILE) as f:
-# 		config = json.load(f)
-# 		config.update(json_data)
+	with open(CONFIG_FILE) as f:
+		config = json.load(f)
+		config.update(json_data)
 
-# 	with open(JSON_OUTPUT, "w") as f:
-# 		f.write(json.dumps(config, indent=4, separators=(',', ': ')))
-# 	print("DOCKER INFO GENERATED")
+	with open(JSON_OUTPUT, "w") as f:
+		f.write(json.dumps(config, indent=4, separators=(',', ': ')))
+	print("DOCKER INFO GENERATED")
 
-# 	os.remove(TMP_OUTPUT)
+	os.remove(TMP_OUTPUT)
 
 
 # 将container id转换成container的pid
@@ -94,8 +94,6 @@ def containerid_to_pid(container_id):
 
 # 新建容器
 def start_container(cmd):
-	# p = Process(target=exec_command, args=(cmd, ))
-	# p.start()
 	container_id = exec_command(cmd, os.getcwd())
 	return container_id
 
@@ -103,19 +101,19 @@ def start_container(cmd):
 # 启动监视器
 def start_monitor(pid, action):
 	# sysrecord
-	# cmd = f"sudo ./sysrecord -p {pid} > {SYS_RECORD}"
+	# cmd = f"sudo ./sysrecord -p {pid}"
 	# p1 = Process(target=exec_command, args=(cmd, ))
 	# p1.start()
 
-	# exec, buggy!!! write when ctrl+c, this is not correct
-	# cmd = f"sudo ./opensnoop -a {action} -p {pid} > opensnoop.txt"
-	# p2 = Process(target=exec_command, args=(cmd, ))
-	# p2.start()
+	# fileopen
+	cmd = f"sudo ./opensnoop -a {action} -p {pid}"
+	p2 = Process(target=exec_command, args=(cmd, ))
+	p2.start()
 
-	# TODO: procrecord,需要改数据传递方式，不用event触发，而是主动轮询map?
-	cmd = f"sudo ./procrecord -a {action} -p {pid}" # > {PROC_RECORD} 2>&1
-	p3 = Process(target=exec_command, args=(cmd, ))
-	p3.start()
+	# procrecord
+	# cmd = f"sudo ./procrecord -a {action} -p {pid}"
+	# p3 = Process(target=exec_command, args=(cmd, ))
+	# p3.start()
 
 
 def display(file):
@@ -131,6 +129,7 @@ def display(file):
 def parse_args():
 	parser = argparse.ArgumentParser(description='Container Escape Monitor.')
 
+	# action参数是否取消，阻断的话需要用到bpf_send_signal(KILL)
 	parser.add_argument('-a', '--action', action='store', help='monitor action', choices=['alert', 'intercept'], required=True)
 	# 添加参数
 	subparsers = parser.add_subparsers(help='sub-command help')
@@ -150,8 +149,9 @@ def parse_args():
 
 def main():
 	# get docker info
-	# get_dockerinfo()
-	pid = 0
+	get_dockerinfo()
+
+	# parse args
 	args = parse_args()
 	if hasattr(args, 'pid') and hasattr(args, 'action'):
 		pid = int(args.pid)
@@ -169,29 +169,29 @@ def main():
 				return
 
 		str_list = args.command.split(' ')
-		# 在docker run后添加“--security-opt seccomp=seccomp.json”
+		# 应用seccomp
 		# str_list.insert(3, "--security-opt seccomp=seccomp.json")
 		container_id = start_container(' '.join(str_list))
 		pid = containerid_to_pid(container_id)
 		action = args.action
 		# print(pid)
 		# 启动monitor
-		# start_monitor(pid, action)
+		start_monitor(pid, action)
 
 
 if __name__ == '__main__':
 	main()
 
-	c = Choice('Which part do you want to display? (press <esc> to exit) ',
-			['Filerecord', 'Procrecord', 'Sysrecord'],
-			icon_style=StringStyle(fore=Fore.blue),
-			selected_style=StringStyle(fore=Fore.blue))
-	choice = c.get_choice()
-	if choice:
-		index, value = choice
-		if value == "Filerecord":
-			display(FILE_RECORD)
-		elif value == "Procrecord":
-			display(PROC_RECORD)
-		else:
-			display(SYS_RECORD)
+	# c = Choice('Which part do you want to display? (press <esc> to exit) ',
+	# 		['Filerecord', 'Procrecord', 'Sysrecord'],
+	# 		icon_style=StringStyle(fore=Fore.blue),
+	# 		selected_style=StringStyle(fore=Fore.blue))
+	# choice = c.get_choice()
+	# if choice:
+	# 	index, value = choice
+	# 	if value == "Filerecord":
+	# 		display(FILE_RECORD)
+	# 	elif value == "Procrecord":
+	# 		display(PROC_RECORD)
+	# 	else:
+	# 		display(SYS_RECORD)

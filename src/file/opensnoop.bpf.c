@@ -5,10 +5,29 @@
 #include <bpf/bpf_helpers.h>
 #include "opensnoop.h"
 
+#include "common_structs.h"
+#include <bpf/bpf_core_read.h>
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
+#include <linux/errno.h>
+
 const volatile pid_t targ_pid = 0;
 const volatile pid_t targ_tgid = 0;
 const volatile uid_t targ_uid = 0;
 const volatile bool targ_failed = false;
+const volatile bool intercept = false;
+
+#define MAX_ENTRIES 8 * 1024
+#define NAME_MAX 255
+
+// struct file_path {
+//     unsigned char path[NAME_MAX];
+// };
+
+// struct callback_ctx {
+//     unsigned char *path;
+//     bool found;
+// };
 
 struct
 {
@@ -25,155 +44,125 @@ struct
 	__uint(value_size, sizeof(u32));
 } events SEC(".maps");
 
-static __always_inline bool valid_uid(uid_t uid)
+struct
 {
-	return uid != INVALID_UID;
-}
+	/* data */
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, MAX_ENTRIES);
+	__type(key, pid_t);	  // PPID
+	__type(value, pid_t); // PID
+} pid_map SEC(".maps");
 
-static __always_inline bool trace_allowed(u32 tgid, u32 pid)
+// struct
+// {
+// 	/* data */
+// 	__uint(type, BPF_MAP_TYPE_HASH);
+// 	__uint(max_entries, 256);
+// 	__type(key, u32);
+// 	__type(value, struct file_path);
+// 	__uint(pinning, LIBBPF_PIN_BY_NAME);
+// } denied_access_files SEC(".maps");
+
+
+// static u64 cb_check_path(struct bpf_map *map, u32 *key, struct file_path *map_path, struct callback_ctx *ctx) {
+// 	bpf_printk("checking ctx->found: %d, path: map_path: %s, ctx_path: %s", ctx->found, map_path->path, ctx->path);
+
+// 	size_t size = strlen(map_path->path, NAME_MAX);
+// 	if (strcmp(map_path->path, ctx->path, size) == 0) {
+// 		ctx->found = 1;
+// 	}
+
+// 	return 0;
+// }
+
+SEC("lsm/file_open")
+int BPF_PROG(file_open, struct file *file)
 {
-	u32 uid;
+	int ret = 0;
+	struct task_struct *current_task;
+	struct mnt_namespace *mnt_ns;
+	struct nsproxy *nsproxy;
+	u64 id = bpf_get_current_pid_tgid();
+	// * use kernel terminology here for tgid/pid:
+	u32 tgid = id >> 32;
+	u32 pid = id;
+	pid_t ppid;
+	ppid = BPF_CORE_READ((struct task_struct *)bpf_get_current_task(), real_parent, tgid);
 
-	/* filters */
-	if (targ_tgid && targ_tgid != tgid)
-		return false;
-	if (targ_pid && targ_pid != pid)
-		return false;
-	if (valid_uid(targ_uid))
+	// if (targ_pid && targ_pid != pid)
+	// 	return 0;
+	if (targ_pid != 0)
 	{
-		uid = (u32)bpf_get_current_uid_gid();
-		if (targ_uid != uid)
+		pid_t target_pid = targ_pid;
+		// 1. 先将target_pid加入pid_map
+		bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
+		// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
+		if (bpf_map_lookup_elem(&pid_map, &ppid))
 		{
-			return false;
+			bpf_map_update_elem(&pid_map, &pid, &pid, BPF_NOEXIST);
+		}
+		// 3. 如果当前进程及父进程都不在pid_map，则返回
+		if (bpf_map_lookup_elem(&pid_map, &pid) == NULL && bpf_map_lookup_elem(&pid_map, &ppid) == NULL)
+		{
+			return 0;
 		}
 	}
-	return true;
-}
 
-SEC("tracepoint/syscalls/sys_enter_open")
-int tracepoint__syscalls__sys_enter_open(struct trace_event_raw_sys_enter *ctx)
-{
-	u64 id = bpf_get_current_pid_tgid();
-	/* use kernel terminology here for tgid/pid: */
-	u32 tgid = id >> 32;
-	u32 pid = id;
+	bpf_printk("open: %d, targ_pid : %d\n", pid, targ_pid);
+	unsigned int inum;
+	current_task = (struct task_struct *)bpf_get_current_task();
+	BPF_CORE_READ_INTO(&nsproxy, current_task, nsproxy);
+	BPF_CORE_READ_INTO(&mnt_ns, nsproxy, mnt_ns);
+	BPF_CORE_READ_INTO(&inum, mnt_ns, ns.inum);
 
-	/* store arg info for later lookup */
-	if (trace_allowed(tgid, pid))
+	struct event e = {};
+	e.pid = (u32)(bpf_get_current_pid_tgid() >> 32);
+	e.uid = bpf_get_current_uid_gid();
+	bpf_get_current_comm(&e.comm, sizeof(e.comm));
+
+	if (bpf_d_path(&file->f_path, e.fname, NAME_MAX) < 0)
 	{
-		struct event e = {};
-		// struct args_t args = {};
-		// args.fname = (const char *)ctx->args[0];
-		// args.flags = (int)ctx->args[1];
-		// bpf_map_update_elem(&start, &pid, &args, 0);
-		e.pid = pid;
-		e.uid = bpf_get_current_uid_gid();
-		bpf_get_current_comm(&e.comm, sizeof(e.comm));
-		bpf_probe_read_user_str(&e.fname, sizeof(e.fname), (const char *)ctx->args[0]);
-		e.flags = (int)ctx->args[1];
-		bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU,
-					&e, sizeof(e));
+		return 0;
 	}
-	
 
-	return 0;
-}
-// open_by_handle_at
-SEC("tracepoint/syscalls/sys_enter_openat")
-int tracepoint__syscalls__sys_enter_openat(struct trace_event_raw_sys_enter *ctx)
-{
-	u64 id = bpf_get_current_pid_tgid();
-	/* use kernel terminology here for tgid/pid: */
-	u32 tgid = id >> 32;
-	u32 pid = id;
+	// struct callback_ctx cb = { .path = e.fname, .found = false};
+	// cb.found = false;
+	// bpf_for_each_map_elem(&denied_access_files, cb_check_path, &cb, 0);
+	// if (cb.found) {
+	// 	bpf_printk("Access Denied: %s\n", cb.path);
+	// 	ret = -EPERM;
+	// }
 
-	/* store arg info for later lookup */
-	if (trace_allowed(tgid, pid))
+	// const unsigned char* blacknames[7] = {"/home/test.c", "/etc/passwd", "/root/.ssh", "/proc/sys", "/proc/sysrq-trigger", "/sys/kernel", "/proc/sys/kernel"};
+	if (intercept)
 	{
-		struct event e = {};
-		// struct args_t args = {};
-		// args.fname = (const char *)ctx->args[0];
-		// args.flags = (int)ctx->args[1];
-		// bpf_map_update_elem(&start, &pid, &args, 0);
-		e.pid = pid;
-		e.uid = bpf_get_current_uid_gid();
-		bpf_get_current_comm(&e.comm, sizeof(e.comm));
-		bpf_probe_read_user_str(&e.fname, sizeof(e.fname), (const char *)ctx->args[1]);
-		e.flags = (int)ctx->args[2];
-		bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU,
-					&e, sizeof(e));
+		const unsigned char* blackname = "/home/test.c";
+		size_t sz = strlen(blackname, NAME_MAX);
+		if (strcmp(e.fname, blackname, sz) == 0)
+		{
+			ret = -EPERM;
+			goto out;
+		}
+		blackname = "/etc/shadow";
+		sz = strlen(blackname, NAME_MAX);
+		if (strcmp(e.fname, blackname, sz) == 0)
+		{
+			ret = -EPERM;
+			goto out;
+		}
+		blackname = "/proc/sysrq-trigger";
+		sz = strlen(blackname, NAME_MAX);
+		if (strcmp(e.fname, blackname, sz) == 0)
+		{
+			ret = -EPERM;
+			goto out;
+		}
 	}
-	
-	return 0;
+
+out:
+	e.flags = 0;
+	bpf_perf_event_output((void *)ctx, &events, BPF_F_CURRENT_CPU, &e, sizeof(e));
+	return ret;
 }
 
-/*
-SEC("tracepoint/syscalls/sys_enter_open_by_handle_at")
-int tracepoint__syscalls__sys_enter_open_by_handle_at(struct trace_event_raw_sys_enter *ctx)
-{
-	u64 id = bpf_get_current_pid_tgid();
-	u32 tgid = id >> 32;
-	u32 pid = id;
-
-	if (trace_allowed(tgid, pid))
-	{
-		struct args_t args = {};
-		args.file_handle = (struct file_handle *)ctx->args[1];
-		args.flags = (int)ctx->args[2];
-		bpf_map_update_elem(&start, &pid, &args, 0);
-	}
-	return 0;
-}
-*/
-/*
-static __always_inline int trace_exit(struct trace_event_raw_sys_exit *ctx)
-{
-	struct event event = {};
-	struct args_t *ap;
-	uintptr_t stack[3];
-	int ret;
-	u32 pid = bpf_get_current_pid_tgid();
-
-	ap = bpf_map_lookup_elem(&start, &pid);
-	if (!ap)
-		return 0; // missed entry
-	ret = ctx->ret;
-	if (targ_failed && ret >= 0)
-		goto cleanup; // want failed only
-
-	// event data
-	event.pid = bpf_get_current_pid_tgid() >> 32;
-	event.uid = bpf_get_current_uid_gid();
-	bpf_get_current_comm(&event.comm, sizeof(event.comm));
-	bpf_probe_read_user_str(&event.fname, sizeof(event.fname), ap->fname);
-	event.flags = ap->flags;
-	event.ret = ret;
-
-	bpf_get_stack(ctx, &stack, sizeof(stack),
-				  BPF_F_USER_STACK);
-	// Skip the first address that is usually the syscall it-self 
-	event.callers[0] = stack[1];
-	event.callers[1] = stack[2];
-
-	// emit event
-	bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU,
-						  &event, sizeof(event));
-
-cleanup:
-	bpf_map_delete_elem(&start, &pid);
-	return 0;
-}
-
-SEC("tracepoint/syscalls/sys_exit_open")
-int tracepoint__syscalls__sys_exit_open(struct trace_event_raw_sys_exit *ctx)
-{
-	return trace_exit(ctx);
-}
-
-SEC("tracepoint/syscalls/sys_exit_openat")
-int tracepoint__syscalls__sys_exit_openat(struct trace_event_raw_sys_exit *ctx)
-{
-	return trace_exit(ctx);
-}
-*/
 char LICENSE[] SEC("license") = "GPL";

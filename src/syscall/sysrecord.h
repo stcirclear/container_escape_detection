@@ -12,11 +12,12 @@ struct syscall_event
 {
 	pid_t pid;
 	pid_t ppid;
-	unsigned int syscall_id;
-	unsigned int mntns;
-	char comm[TASK_COMM_LEN];
+	uint32_t syscall_id;
+	uint64_t mntns;
+	int occur_times;
+	char comm[SYSCALL_TASK_COMM_LEN];
 
 	// long unsigned int args[6];
 };
 
-#endif /* __SYSRECORD_H */
+#endif /* __BOOTSTRAP_H */
