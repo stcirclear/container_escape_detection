@@ -108,7 +108,7 @@ int BPF_PROG(file_open, struct file *file)
 		}
 	}
 
-	bpf_printk("open: %d, targ_pid : %d\n", pid, targ_pid);
+	// bpf_printk("open: %d, targ_pid : %d\n", pid, targ_pid);
 	unsigned int inum;
 	current_task = (struct task_struct *)bpf_get_current_task();
 	BPF_CORE_READ_INTO(&nsproxy, current_task, nsproxy);
@@ -134,30 +134,42 @@ int BPF_PROG(file_open, struct file *file)
 	// }
 
 	// const unsigned char* blacknames[7] = {"/home/test.c", "/etc/passwd", "/root/.ssh", "/proc/sys", "/proc/sysrq-trigger", "/sys/kernel", "/proc/sys/kernel"};
-	if (intercept)
+	// if (intercept)
+	// {
+	const unsigned char* blackname = "/home/test.c";
+	size_t sz = strlen(blackname, NAME_MAX);
+	if (strcmp(e.fname, blackname, sz) == 0)
 	{
-		const unsigned char* blackname = "/home/test.c";
-		size_t sz = strlen(blackname, NAME_MAX);
-		if (strcmp(e.fname, blackname, sz) == 0)
-		{
-			ret = -EPERM;
-			goto out;
-		}
-		blackname = "/etc/shadow";
-		sz = strlen(blackname, NAME_MAX);
-		if (strcmp(e.fname, blackname, sz) == 0)
-		{
-			ret = -EPERM;
-			goto out;
-		}
-		blackname = "/proc/sysrq-trigger";
-		sz = strlen(blackname, NAME_MAX);
-		if (strcmp(e.fname, blackname, sz) == 0)
+		bpf_printk("Warning: %s is opened\n", blackname);
+		if (intercept)
 		{
 			ret = -EPERM;
 			goto out;
 		}
 	}
+	blackname = "/etc/shadow";
+	sz = strlen(blackname, NAME_MAX);
+	if (strcmp(e.fname, blackname, sz) == 0)
+	{
+		bpf_printk("Warning: %s is opened\n", blackname);
+		if (intercept)
+		{
+			ret = -EPERM;
+			goto out;
+		}
+	}
+	blackname = "/proc/sysrq-trigger";
+	sz = strlen(blackname, NAME_MAX);
+	if (strcmp(e.fname, blackname, sz) == 0)
+	{
+		bpf_printk("Warning: %s is opened\n", blackname);
+		if (intercept)
+		{
+			ret = -EPERM;
+			goto out;
+		}
+	}
+	// }
 
 out:
 	e.flags = 0;

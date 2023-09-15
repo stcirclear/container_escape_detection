@@ -43,6 +43,7 @@ def exec_command(cmd, cwd=os.getcwd()):
 
 # 使用脚本dockerpsns.sh获取docker信息
 def get_dockerinfo():
+	print("***** DOCKER INFO GENERATING *****")
 	cmd = f"sudo bash dockerpsns.sh > {TMP_OUTPUT}"
 	exec_command(cmd, os.getcwd())
 
@@ -69,7 +70,7 @@ def get_dockerinfo():
 
 	with open(JSON_OUTPUT, "w") as f:
 		f.write(json.dumps(config, indent=4, separators=(',', ': ')))
-	print("DOCKER INFO GENERATED")
+	print("***** DOCKER INFO GENERATED ******")
 
 	os.remove(TMP_OUTPUT)
 
@@ -94,12 +95,15 @@ def containerid_to_pid(container_id):
 
 # 新建容器
 def start_container(cmd):
+	print("***** STARTING THE CONTAINER *****")
 	container_id = exec_command(cmd, os.getcwd())
+	print("******* CONTAINER STARTED ********")
 	return container_id
 
 
 # 启动监视器
 def start_monitor(pid, action):
+	print("****** STARTING THE MONITOR ******")
 	# sysrecord
 	# cmd = f"sudo ./sysrecord -p {pid}"
 	# p1 = Process(target=exec_command, args=(cmd, ))
@@ -114,6 +118,7 @@ def start_monitor(pid, action):
 	# cmd = f"sudo ./procrecord -a {action} -p {pid}"
 	# p3 = Process(target=exec_command, args=(cmd, ))
 	# p3.start()
+	print("******** MONITOR STARTED *********")
 
 
 def display(file):
@@ -148,9 +153,6 @@ def parse_args():
 
 
 def main():
-	# get docker info
-	get_dockerinfo()
-
 	# parse args
 	args = parse_args()
 	if hasattr(args, 'pid') and hasattr(args, 'action'):
@@ -158,6 +160,7 @@ def main():
 		action = args.action
 		# print(pid)
 		# 启动monitor
+		get_dockerinfo()
 		start_monitor(pid, action)
 	elif hasattr(args, 'command') and hasattr(args, 'action'):
 		if hasattr(args, 'scan'):
@@ -176,6 +179,7 @@ def main():
 		action = args.action
 		# print(pid)
 		# 启动monitor
+		get_dockerinfo()
 		start_monitor(pid, action)
 
 
