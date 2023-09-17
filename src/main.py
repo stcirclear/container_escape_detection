@@ -174,6 +174,14 @@ def main():
 		str_list = args.command.split(' ')
 		# 应用seccomp
 		# str_list.insert(3, "--security-opt seccomp=seccomp.json")
+		# 启动容器前对挂载位置的检查
+		if (str_list.count("-v")):
+			idx = str_list.index("-v")
+			block_mount = ["/var/run/docker.sock", "/var/log", "/dev/sda1"]
+			if str_list[idx + 1].split(':')[0] in block_mount:
+				print("Error mount")
+				return
+
 		container_id = start_container(' '.join(str_list))
 		pid = containerid_to_pid(container_id)
 		action = args.action
