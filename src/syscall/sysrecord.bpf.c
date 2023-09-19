@@ -65,12 +65,6 @@ struct
 	__type(value, u32); // PID
 } pid_map SEC(".maps");
 
-const volatile bool filter_cg = false;
-const volatile unsigned char filter_report_times = 0;
-const volatile pid_t filter_pid = 0;
-const volatile unsigned long long min_duration_ns = 0;
-volatile unsigned long long last_ts = 0;
-
 void __always_inline submit_event(void* ctx, struct task_struct *task, u32 pid, u64 mntns, u32 syscall_id, unsigned char times) {
     // submit event to perf buffer
 	struct syscall_event *event;

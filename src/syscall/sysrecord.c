@@ -89,7 +89,7 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	strftime(ts, sizeof(ts), "%H:%M:%S", tm);
 
 	syscall_name(e->syscall_id, syscall_name_buf, sizeof(syscall_name_buf));
-	printf("%-8s %-16s %-7d %-7d [%u] %-10u %-15s\n",
+	printf("%-8s %-16s %-7d %-7d [%lu] %-10u %-15s\n",
 		   ts, e->comm, e->pid, e->ppid, e->mntns, e->syscall_id, syscall_name_buf);
 
 	return;
