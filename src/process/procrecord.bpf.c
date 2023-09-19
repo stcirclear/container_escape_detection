@@ -8,6 +8,7 @@
 
 const volatile bool filter_cg = false;
 const volatile bool ignore_failed = true;
+const volatile bool intercept = false;
 
 static const struct process_event empty_event = {};
 
@@ -58,8 +59,9 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	pid = bpf_get_current_pid_tgid() >> 32;
 	ppid = BPF_CORE_READ(task, real_parent, tgid);
 
-	/* step 2: 分析进程是否属于容器 */
-	if (filter_pid)
+	// 分析进程权限关系
+	// 如果有传入的参数，则进行过滤，否则不过滤
+	if (filter_pid != 0)
 	{
 		pid_t target_pid = filter_pid;
 		// 1. 先将target_pid加入pid_map
@@ -93,11 +95,16 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	// 权限比较,若发生提权事件则cap_err=true
 	kernel_cap_t p_cap = BPF_CORE_READ(task, real_parent, cred, cap_effective);
 	kernel_cap_t cap = BPF_CORE_READ(task, cred, cap_effective);
+
 	bpf_printk("%s p_cap:%x %x\n", e.comm, p_cap.cap[0], p_cap.cap[1]);
 	bpf_printk("%s   cap:%x %x\n", e.comm, cap.cap[0], cap.cap[1]);
 	if(p_cap.cap[0] < cap.cap[0] || p_cap.cap[1] < cap.cap[1]) {
 		bpf_printk("!ERROR! pid: %d capability elevated!\n", e.pid);
 		e.cap_err = true;
+		if (intercept)
+		{
+			bpf_send_signal(9);
+		}
 	}
 
 	unsigned int p_pid_ns = BPF_CORE_READ(task, real_parent, nsproxy, pid_ns_for_children, ns.inum);
@@ -107,6 +114,10 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	if(p_pid_ns != e.pid_namespace_id || p_mnt_ns != e.mount_namespace_id) {
 		bpf_printk("!ERROR! pid: %d namespace changed!\n", e.pid);
 		e.cap_err = true;
+		if (intercept)
+		{
+			bpf_send_signal(9);
+		}
 	}
 	
 
@@ -119,6 +130,10 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	if(p_root_ino != root_ino){
 		bpf_printk("!ERROR! pid: %d root fs changed!\n", e.pid);
 		e.fs_err = true;
+		if (intercept)
+		{
+			bpf_send_signal(9);
+		}
 	}
 	
 

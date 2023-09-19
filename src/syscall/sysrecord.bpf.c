@@ -65,6 +65,15 @@ struct
 	__type(value, u32); // PID
 } pid_map SEC(".maps");
 
+<<<<<<< HEAD
+=======
+const volatile bool filter_cg = false;
+const volatile unsigned char filter_report_times = 0;
+const volatile pid_t filter_pid = 0;
+const volatile unsigned long long min_duration_ns = 0;
+volatile unsigned long long last_ts = 0;
+
+>>>>>>> 979c31f8937e8d9acf2fd72e42a00d782f7d18b9
 void __always_inline submit_event(void* ctx, struct task_struct *task, u32 pid, u64 mntns, u32 syscall_id, unsigned char times) {
     // submit event to perf buffer
 	struct syscall_event *event;
@@ -131,6 +140,10 @@ int sys_enter(struct trace_event_raw_sys_enter *args)
 	mntns = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
 	if (mntns == 0)
 		return 0;
+<<<<<<< HEAD
+=======
+	}
+>>>>>>> 979c31f8937e8d9acf2fd72e42a00d782f7d18b9
 	
 	u8 *const syscall_value = bpf_map_lookup_elem(&syscalls, &pid);
 	if(syscall_value)

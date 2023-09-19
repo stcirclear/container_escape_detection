@@ -21,7 +21,6 @@
 #define MAX_ARGS_KEY 259
 
 static volatile sig_atomic_t exiting = 0;
-static volatile bool do_intercept;
 
 static struct env
 {
@@ -30,6 +29,7 @@ static struct env
 	char *cgroupspath;
 	bool cg;
 	pid_t target_pid;
+	bool intercept;
 } process_env = {
 
 };
@@ -65,7 +65,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 		argp_state_help(state, stderr, ARGP_HELP_STD_HELP);
 		break;
 	case 'a':
-		do_intercept = strcmp(arg, "alert") ? true : false;
+		process_env.intercept = strcmp(arg, "alert") ? true : false;
 		break;
 	case 'c':
 		process_env.cgroupspath = arg;
@@ -163,33 +163,25 @@ static void sig_handler(int sig)
 /* 响应函数 */
 static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 {
-	// TODO: 在这检查 & 响应
-	const struct process_event *e = data;
-	if (e->cap_err)
-	{
-		if (do_intercept)
-		{
-			printf("Do kill\n");
-		}
-		else
-		{
-			printf("Do warning\n");
-		}
-		printf("[ERROR] pid: %d cap changed!\n", e->pid);
-	} else if (e->fs_err) {
-		printf("[ERROR] pid: %d fs changed!\n", e->pid);
-	} else if (e->ns_err) {
-		printf("[ERROR] pid: %d ns changed!\n", e->pid);
-	}
-
 	FILE *fp;
-	fp = fopen("procrecord.txt", "a");
+	const struct process_event *e = data;
+	
+	fp = fopen("procrecord.log", "a");
 	if (fp == NULL)
 	{
 		return;
 	}
 	fprintf(fp, "%-16s %-6d %-6d [%u] [%u] %s\n", e->comm, e->pid, e->ppid, e->pid_namespace_id, e->mount_namespace_id, e->filename);
 	fclose(fp);
+
+	if (e->cap_err)
+	{
+		printf("[ERROR] pid: %d cap changed!\n", e->pid);
+	} else if (e->fs_err) {
+		printf("[ERROR] pid: %d fs changed!\n", e->pid);
+	} else if (e->ns_err) {
+		printf("[ERROR] pid: %d ns changed!\n", e->pid);
+	}
 	
 	// printf("%-16s %-6d %-6d [%u] [%u] %s\n", e->comm, e->pid, e->ppid, e->pid_namespace_id, e->mount_namespace_id, e->filename);
 }
@@ -242,6 +234,7 @@ int main(int argc, char **argv)
 
 	/* initialize global data (filtering options) */
 	obj->rodata->filter_pid = process_env.target_pid;
+	obj->rodata->intercept = process_env.intercept;
 
 	err = procrecord_bpf__load(obj);
 	if (err)

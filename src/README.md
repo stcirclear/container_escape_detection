@@ -4,7 +4,7 @@
 
 **TASK**
 * [x] process，添加可选的权限比较机制：capabilities √；namespaces TODO；
-* [ ] open，1.read bug解决；2.添加可选的黑名单机制
+* [x] open，1.read bug解决；2.添加可选的黑名单机制
 * [ ] syscall，利用sysdig模块收集容器启动时的系统调用，与监控到的运行时系统调用结合，生成seccomp文件
 * [ ] syscall有bug？输入echo命令检测不到发生了什么系统调用？；sysrecord检测到的和strace检测到的不一样？正常吗
 * [x] pre-check模块：提取用户输入命令中的镜像名称，用trivy进行扫描
@@ -26,11 +26,11 @@ sudo ./syscount
 ```
 4. 运行主程序
 ```shell
-sudo python3 ../main.py run -c "sudo docker run -d --name=alpine2 alpine /bin/sh"
+sudo python3 main.py -a alert run -c "sudo docker run -itd --rm --name=test alpine /bin/sh" -s alpine
 ```
 或者
 ```shell
-sudo python3 ../main.py monitor -p 1234
+sudo python3 main.py -a alert monitor -p 1234
 ```
 
 ## 说明

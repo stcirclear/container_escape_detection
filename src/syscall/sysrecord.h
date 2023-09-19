@@ -20,4 +20,4 @@ struct syscall_event
 	// long unsigned int args[6];
 };
 
-#endif /* __SYSRECORD_H */
+#endif /* __BOOTSTRAP_H */

@@ -178,7 +178,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	skel->rodata->filter_pid = syscall_env.filter_pid;
+	skel->rodata->filter_pid = syscall_env.target_pid;
 	skel->rodata->filter_cg = syscall_env.filter_cg;
 	skel->rodata->filter_report_times = 100;
 	skel->rodata->min_duration_ns = 100;

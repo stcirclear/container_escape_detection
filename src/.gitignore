@@ -10,3 +10,18 @@
 /dockerinfo.json
 /*.txt
 /trivy
+/test.py
+
+/file/opensnoop.bpf (copy).c
+/file/restrictedfile.bpf.c
+/file/restrictedfile.c
+/file/restrictedfile.h
+
+/file/filerecord.bpf.backup.c
+/file/filerecord.bpf.c
+/file/filerecord.c
+/file/filerecord.h
+
+/process/execsnoop.bpf.c
+/process/execsnoop.c
+/process/execsnoop.h
