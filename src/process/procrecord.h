@@ -14,6 +14,7 @@
 #define EVENT_SIZE(e) (BASE_EVENT_SIZE + e->args_size)
 #define LAST_ARG (FULL_MAX_ARGS_ARR - ARGSIZE)
 
+
 struct process_event
 {
 	/* data */
@@ -27,8 +28,9 @@ struct process_event
 	char comm[TASK_COMM_LEN];
 	char filename[NAME_MAX];
 
-	bool exit_event;
-	int prio;
+	bool cap_err;
+	bool ns_err;
+	bool fs_err;
 };
 
 #endif /* __PROCRECORD_H */

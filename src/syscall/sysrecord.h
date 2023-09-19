@@ -12,8 +12,9 @@ struct syscall_event
 {
 	pid_t pid;
 	pid_t ppid;
-	unsigned int syscall_id;
-	unsigned int mntns;
+	uint32_t syscall_id;
+	uint64_t mntns;
+	int occur_times;
 	char comm[TASK_COMM_LEN];
 
 	// long unsigned int args[6];
