@@ -52,3 +52,42 @@ sudo apt install libseccomp-dev libseccomp2 seccomp
 
 参考[bouheki](https://github.com/mrtc0/bouheki/tree/master/pkg/bpf/c)这个，可以对file、mount设置黑名单，但是这个功能需要高版本内核（Linux Kernel >= 5.8.0），可以用ubuntu20.10测试
 
+
+## 检测漏洞
+### 1. 特权容器
+> 该逃逸不限docker和Linux内核版本
+
+开启一个终端，运行一个特权容器，并将vuls/privileged_container文件夹中的poc.sh脚本拷贝进容器中。
+
+```shell
+cd vuls/privileged_container
+sudo docker run -itd --name privileged_container --privileged ubuntu /bin/bash   #运行一个特权容器
+sudo docker cp poc.sh privileged_container  #拷贝漏洞利用文件进容器
+sudo docker top privileged_container  #查看容器进程号，需要的是如下所示的PPID，此处为8105
+UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
+root                8138                8105                0                   00:56               pts/0               00:00:00            /bin/bash
+root                15644               8105                0                   01:23               pts/1               00:00:00            /bin/bash
+
+```
+
+开启一个终端，在该终端中启动ebpf漏洞检测程序。
+
+```shell
+cd src
+sudo ./procrecord -p {容器进程号8105}
+```
+
+监控程序启动后，运行容器的交互界面，并利用poc.sh实现特权容器逃逸。
+
+```shell
+sudo docker exec -it privileged_container /bin/bash
+
+# 容器内
+chmod +x poc.sh
+./poc.sh
+```
+
+与此同时，监控程序可以检测到容器进程根目录发生改变。
+### 2. CVE-2022-0492
+
+### 3. CVE-2019-5736
