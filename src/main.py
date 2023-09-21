@@ -166,7 +166,7 @@ def main():
 		if hasattr(args, 'scan'):
 			if args.scan and args.scan in args.command:
 				print("SCANNING THE IMAGE")
-				exec_command(f"./trivy image {args.scan} > image.txt 2>&1", os.getcwd())
+				exec_command(f"trivy image {args.scan} > image.txt 2>&1", os.getcwd())
 			elif args.scan and args.scan not in args.command:
 				print("wrong image name")
 				return

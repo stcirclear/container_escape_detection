@@ -11,6 +11,23 @@
 * [ ] 信息聚合与展示：各模块输出到文件，main.py读取并展示？
 * [x] main.py：增加 告警or拦截 选项
 
+## 环境依赖
+1. 编译程序需要clang/llvm 版本>10，安装教程：https://apt.llvm.org/  
+2. 本项目集成了docker镜像扫描工具trivy进行容器镜像的预扫描，若想使用该功能则需要安装trivy
+
+```shell
+# 使用apt源安装
+sudo apt-get install wget apt-transport-https gnupg lsb-release
+wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+sudo apt-get update
+sudo apt-get install trivy
+
+# 使用deb包安装
+wget https://github.com/aquasecurity/trivy/releases/download/v0.30.4/trivy_0.30.4_Linux-64bit.deb
+sudo dpkg -i trivy_0.30.4_Linux-64bit.deb
+```
+
 ## 编译运行
 1. 在主文件夹目录下初始化submodule
 ```shell
@@ -61,7 +78,7 @@ sudo apt install libseccomp-dev libseccomp2 seccomp
 
 ```shell
 cd vuls/privileged_container
-sudo docker run -itd --name privileged_container --privileged ubuntu /bin/bash   #运行一个特权容器
+sudo docker run -itd --rm --name privileged_container --privileged ubuntu /bin/bash   #运行一个特权容器
 sudo docker cp poc.sh privileged_container  #拷贝漏洞利用文件进容器
 sudo docker top privileged_container  #查看容器进程号，需要的是如下所示的PPID，此处为8105
 UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
