@@ -102,8 +102,9 @@ sudo ./procrecord -p {容器进程号8105}
 sudo docker exec -it privileged_container /bin/bash
 
 # 容器内
-chmod +x poc.sh
-./poc.sh
+mkdir host
+mount /dev/sda1 /host   #/dev/sda1根据本机实际情况修改
+chroot /host
 ```
 
 与此同时，监控程序可以检测到容器进程根目录发生改变。
