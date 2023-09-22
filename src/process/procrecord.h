@@ -19,11 +19,17 @@ struct process_event
 {
 	/* data */
 	pid_t pid;
-	pid_t ppid;
 	unsigned long long cgroup_id;
-	unsigned int user_namespace_id;
-	unsigned int pid_namespace_id;
-	unsigned int mount_namespace_id;
+	unsigned int pid_ns;
+	unsigned int mnt_ns;
+	unsigned long root_ino;
+	int cap[2];
+	
+	pid_t ppid;
+	unsigned int p_pid_ns;
+	unsigned int p_mnt_ns;
+	unsigned long p_root_ino;
+	int p_cap[2];
 
 	char comm[TASK_COMM_LEN];
 	char filename[NAME_MAX];

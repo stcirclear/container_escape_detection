@@ -40,12 +40,14 @@ const char *argp_program_bug_address =
 const char argp_program_doc[] =
 	"Trace exec syscalls\n"
 	"\n"
-	"USAGE: procrecord [-h] [-p] [-c CG]\n"
+	"USAGE: ./procrecord -a alert/intercept [-h] [-p] [-c CG]\n"
 	"\n"
 	"EXAMPLES:\n"
 	"   ./procrecord           # trace all process\n"
-	"   ./procrecord -p        # trace pid and its child-process\n"
-	"   ./procrecord -c CG     # Trace process under cgroupsPath CG\n";
+	"   ./procrecord -p {pid}  # trace pid and its child-process\n"
+	"   ./procrecord -c CG     # Trace process under cgroupsPath CG\n"
+	"   ./procrecord -a alert/intercept     # Trace process under cgroupsPath CG\n"
+	;
 
 static const struct argp_option opts[] = {
 	{"action", 'a', "ACTION", 0, "do this action when bad things happen"},
@@ -166,24 +168,30 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	FILE *fp;
 	const struct process_event *e = data;
 	
-	fp = fopen("procrecord.log", "a");
+	fp = fopen("log/procrecord.log", "a");
 	if (fp == NULL)
 	{
 		return;
 	}
-	fprintf(fp, "%-16s %-6d %-6d [%u] [%u] %s\n", e->comm, e->pid, e->ppid, e->pid_namespace_id, e->mount_namespace_id, e->filename);
+	fprintf(fp, "%-8s %-16s %-6d [0x%x] [0x%x] [0x%x %x] %-8lu\n", "PPROC:", e->comm, e->pid, e->pid_ns, e->mnt_ns, e->cap[0], e->cap[1], e->root_ino);
+	fprintf(fp, "%-8s %-16s %-6d [0x%x] [0x%x] [0x%x %x] %-8lu\n", "PROC:", e->comm, e->ppid, e->p_pid_ns, e->p_mnt_ns, e->p_cap[0], e->p_cap[1], e->p_root_ino);
 	fclose(fp);
+
+	fp = fopen("log/error.log", "a");
+	if (fp == NULL)
+	{
+		return;
+	}
 
 	if (e->cap_err)
 	{
-		printf("[ERROR] pid: %d cap changed!\n", e->pid);
+		fprintf(fp, "[ERROR] pid: %d cap changed!\n", e->pid);
 	} else if (e->fs_err) {
-		printf("[ERROR] pid: %d fs changed!\n", e->pid);
+		fprintf(fp, "[ERROR] pid: %d fs changed!\n", e->pid);
 	} else if (e->ns_err) {
-		printf("[ERROR] pid: %d ns changed!\n", e->pid);
+		fprintf(fp, "[ERROR] pid: %d ns changed!\n", e->pid);
 	}
-	
-	// printf("%-16s %-6d %-6d [%u] [%u] %s\n", e->comm, e->pid, e->ppid, e->pid_namespace_id, e->mount_namespace_id, e->filename);
+	fclose(fp);
 }
 
 static void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
@@ -252,13 +260,13 @@ int main(int argc, char **argv)
 	
 	// 打开log文件
 	FILE *fp;
-	fp = fopen("procrecord.txt", "a");
+	fp = fopen("log/procrecord.log", "a");
 	if (fp == NULL)
 	{
 		return 0;
 	}
 
-	fprintf(fp, "%-16s %-6s %-6s %-10s %-10s %3s %s\n", "PCOMM", "PID", "PPID", "PID_NS", "MNT_NS", "RET", "ARGS");
+	fprintf(fp, "%-8s %-16s %-6s %-12s %-12s %-16s %-8s\n", "[P]PROC", "COMM", "PID", "PID_NS", "MNT_NS", "CAP", "ROOT_INO");
 	fclose(fp);
 	
 	// printf("%-16s %-6s %-6s %-10s %-10s %3s %s\n", "PCOMM", "PID", "PPID", "PID_NS", "MNT_NS", "RET", "ARGS");
