@@ -24,7 +24,7 @@ echo
 # print host details
 pid=1
 read name < /proc/$pid/comm
-printf "%-14s %-20.20s %6d %-16.16s" "host" $(hostname) $pid $name
+printf "%-14s %-20.20s %6d %-16.16s" "host" $(hostname) $pid 0 $name
 for n in $namespaces; do
 	id=$(stat --format="%N" /proc/$pid/ns/$n)
 	id=${id#*[}
@@ -40,7 +40,11 @@ for UUID in $(docker ps -q); do
 	name=$(docker inspect -f '{{.Name}}' $UUID)
 	path=$(docker inspect -f '{{.Path}}' $UUID)
 	name=${name#/}
-	printf "%-14s %-20.20s %6d %-16.16s" $UUID $name $pid $path
+
+	get_ppid=$(ps -elf |awk '$4=='$pid'{print $5}')
+    ppid=$get_ppid
+
+	printf "%-14s %-20.20s %6d %6d %-16.16s" $UUID $name $pid $ppid $path
 
 	# namespace info:
 	for n in $namespaces; do

@@ -56,12 +56,13 @@ def get_dockerinfo():
 			dict_data['CONTAINER-ID'] = item.split()[0]
 			dict_data['NAME'] = item.split()[1]
 			dict_data['PID'] = int(item.split()[2])
-			dict_data['PATH'] = item.split()[3]
-			dict_data['CGROUP'] = item.split()[4]
-			dict_data['IPC'] = item.split()[5]
-			dict_data['NET'] = item.split()[6]
-			dict_data['USER'] = item.split()[7]
-			dict_data['UTS'] = item.split()[8]
+			dict_data['PPID'] = int(item.split()[3])
+			dict_data['PATH'] = item.split()[4]
+			dict_data['CGROUP'] = item.split()[5]
+			dict_data['IPC'] = item.split()[6]
+			dict_data['NET'] = item.split()[7]
+			dict_data['USER'] = item.split()[8]
+			dict_data['UTS'] = item.split()[9]
 			json_data['Containers'].append(dict_data)
 
 	with open(CONFIG_FILE) as f:
@@ -93,6 +94,24 @@ def containerid_to_pid(container_id):
 	return pid
 
 
+# 将container id转换成container的ppid
+def containerid_to_ppid(container_id):
+	cmd = f"sudo bash dockerpsns.sh > {TMP_OUTPUT}"
+	exec_command(cmd, os.getcwd())
+
+	ppid = 0
+	with open(TMP_OUTPUT, "r") as f:
+		data = f.readlines()
+		for item in data[1:]:
+			if item.split()[0] == container_id[:12]:
+				ppid = int(item.split()[3])
+				break
+			else:
+				continue
+	os.remove(TMP_OUTPUT)
+	return ppid
+
+
 # 新建容器
 def start_container(cmd):
 	print("***** STARTING THE CONTAINER *****")
@@ -111,13 +130,15 @@ def start_monitor(pid, action):
 
 	# fileopen
 	cmd = f"sudo ./opensnoop -a {action} -p {pid}"
+	print(cmd)
 	p2 = Process(target=exec_command, args=(cmd, ))
 	p2.start()
 
 	# procrecord
-	# cmd = f"sudo ./procrecord -a {action} -p {pid}"
-	# p3 = Process(target=exec_command, args=(cmd, ))
-	# p3.start()
+	cmd = f"sudo ./procrecord -a {action} -p {pid}"
+	print(cmd)
+	p3 = Process(target=exec_command, args=(cmd, ))
+	p3.start()
 	print("******** MONITOR STARTED *********")
 
 
@@ -183,7 +204,7 @@ def main():
 				return
 
 		container_id = start_container(' '.join(str_list))
-		pid = containerid_to_pid(container_id)
+		pid = containerid_to_ppid(container_id)
 		action = args.action
 		# print(pid)
 		# 启动monitor

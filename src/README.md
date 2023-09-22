@@ -77,6 +77,8 @@ sudo apt install libseccomp-dev libseccomp2 seccomp
 开启一个终端，运行一个特权容器，并将vuls/privileged_container文件夹中的poc.sh脚本拷贝进容器中。
 
 ```shell
+sudo python3 main.py -a alert run -c "sudo docker run -itd --rm --name privileged_container --privileged ubuntu /bin/bash " -s ubuntu
+
 cd vuls/privileged_container
 sudo docker run -itd --rm --name privileged_container --privileged ubuntu /bin/bash   #运行一个特权容器
 sudo docker cp poc.sh privileged_container  #拷贝漏洞利用文件进容器
