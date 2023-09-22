@@ -115,8 +115,8 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 
 	e.p_pid_ns = BPF_CORE_READ(task, real_parent, nsproxy, pid_ns_for_children, ns.inum);
 	e.p_mnt_ns = BPF_CORE_READ(task, real_parent, nsproxy, mnt_ns, ns.inum);
-	bpf_printk("%s p_ns:%u %u", e.comm, e.pid_ns, e.mnt_ns);
-	bpf_printk("%s   ns:%u %u", e.comm, e.p_pid_ns, e.p_mnt_ns);
+	bpf_printk("%s p_ns:%x %x", e.comm, e.pid_ns, e.mnt_ns);
+	bpf_printk("%s   ns:%x %x", e.comm, e.p_pid_ns, e.p_mnt_ns);
 	if(e.p_pid_ns > e.pid_ns || e.p_mnt_ns > e.mnt_ns) {
 		bpf_printk("!ERROR! pid: %d namespace changed!", e.pid);
 		e.ns_err = true;
