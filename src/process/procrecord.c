@@ -182,8 +182,8 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	} else if (e->ns_err) {
 		fprintf(fp, "[ERROR] pid: %d ns changed!\n", e->pid);
 	}
-	fprintf(fp, "%-8s %-16s %-6d [0x%x] [0x%x] [0x%x %x] %-8lu\n", "PROC:", e->comm, e->pid, e->pid_ns, e->mnt_ns, e->cap[0], e->cap[1], e->root_ino);
 	fprintf(fp, "%-8s %-16s %-6d [0x%x] [0x%x] [0x%x %x] %-8lu\n", "PPROC:", e->comm, e->ppid, e->p_pid_ns, e->p_mnt_ns, e->p_cap[0], e->p_cap[1], e->p_root_ino);
+	fprintf(fp, "%-8s %-16s %-6d [0x%x] [0x%x] [0x%x %x] %-8lu\n", "PROC:", e->comm, e->pid, e->pid_ns, e->mnt_ns, e->cap[0], e->cap[1], e->root_ino);
 	fclose(fp);
 }
 
