@@ -30,7 +30,7 @@ def exec_command(cmd, cwd=os.getcwd()):
 			cmd, cwd=cwd, shell=True, stdout=subprocess.PIPE)
 		if result.returncode != 0:
 			msg = f"returncode: {result.returncode} cmd: '{result.args}' err:{result.stderr}"
-			print("ERROR", msg)
+			print("\033[1;31mERROR:\033[0m \033[0;31m%s\033[0m" % msg)
 			return ""
 		# 过滤出启动容器的命令
 		if "docker run" in cmd:
@@ -44,7 +44,7 @@ def exec_command(cmd, cwd=os.getcwd()):
 
 # 使用脚本dockerpsns.sh获取docker信息
 def get_dockerinfo():
-	print("***** DOCKER INFO GENERATING *****")
+	print("\033[0;32m***** DOCKER INFO GENERATING *****\033[0m")
 	cmd = f"sudo bash dockerpsns.sh > {TMP_OUTPUT}"
 	exec_command(cmd, os.getcwd())
 
@@ -72,7 +72,7 @@ def get_dockerinfo():
 
 	with open(JSON_OUTPUT, "w") as f:
 		f.write(json.dumps(config, indent=4, separators=(',', ': ')))
-	print("***** DOCKER INFO GENERATED ******")
+	print("\033[0;32m***** DOCKER INFO GENERATED ******\033[0m")
 
 	os.remove(TMP_OUTPUT)
 
@@ -115,46 +115,49 @@ def containerid_to_ppid(container_id):
 
 # 新建容器
 def start_container(cmd):
-	print("***** STARTING THE CONTAINER *****")
+	print("\033[0;32m***** STARTING THE CONTAINER *****\033[0m")
 	container_id = exec_command(cmd, os.getcwd())
-	print("******* CONTAINER STARTED ********")
+	print("\033[0;32m******* CONTAINER STARTED ********\033[0m")
 	return container_id
 
 # 获取当前内核版本号，并转化为十进制数字，如5.8.0 -> 580
 def get_kernel_version():
 	platform_str = platform()
-	version = platform_str.split('-')[1].split('.')
-	version_num = 0
-	for item in version:
-		version_num =+ version_num * 10 + int(item)
-	print(version_num)
-	return version_num
+	version = platform_str.split('-')[1]
+	# print(version_num)
+	return version
 		
 
 # 启动监视器
 def start_monitor(pid, action):
-	print("****** STARTING THE MONITOR ******")
+	print("\033[0;32m****** STARTING THE MONITOR ******\033[0m")
 	# sysrecord
 	# cmd = f"sudo ./sysrecord -p {pid}"
 	# p1 = Process(target=exec_command, args=(cmd, ))
 	# p1.start()
 
 	version = get_kernel_version()
+	version_num = 0
+	for item in version.split('.'):
+		version_num =+ version_num * 10 + int(item)
 	need_version = 590
+	print("\033[0;32m Current Kernel Version is %s\033[0m" % version)
 	# fileopen
-	if(version >= need_version):
+	if(version_num >= need_version):
 		cmd = f"sudo ./opensnoop -a {action} -p {pid}"
-		print(cmd)
+		print("\033[1;32m Execute:\033[0m \033[0;32m%s\033[0m" % cmd)
 		p2 = Process(target=exec_command, args=(cmd, ))
 		p2.start()
+	else:
+		print("\033[1;33m Warning:\033[0m \033[0;33mCurrent kernel version is too low to excute opensnoop\033[0m")
 	
 
 	# procrecord
 	cmd = f"sudo ./procrecord -a {action} -p {pid}"
-	print(cmd)
+	print("\033[1;32m Execute:\033[0m \033[0;32m%s\033[0m" % cmd)
 	p3 = Process(target=exec_command, args=(cmd, ))
 	p3.start()
-	print("******** MONITOR STARTED *********")
+	print("\033[0;32m******** MONITOR STARTED *********\033[0m")
 
 
 def display(file):
@@ -201,10 +204,10 @@ def main():
 	elif hasattr(args, 'command') and hasattr(args, 'action'):
 		if hasattr(args, 'scan'):
 			if args.scan and args.scan in args.command:
-				print("SCANNING THE IMAGE")
+				print("\033[0;34mSCANNING THE IMAGE....\033[0m")
 				exec_command(f"trivy image {args.scan} > image.txt 2>&1", os.getcwd())
 			elif args.scan and args.scan not in args.command:
-				print("wrong image name")
+				print("\033[1;31mERROR:\033[0m \033[0;31mwrong image name\033[0m")
 				return
 
 		str_list = args.command.split(' ')
@@ -215,7 +218,7 @@ def main():
 			idx = str_list.index("-v")
 			block_mount = ["/var/run/docker.sock", "/var/log", "/dev/sda1"]
 			if str_list[idx + 1].split(':')[0] in block_mount:
-				print("Error mount")
+				print("\033[1;31mError mount\033[0m")
 				return
 
 		container_id = start_container(' '.join(str_list))
