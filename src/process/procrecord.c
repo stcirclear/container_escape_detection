@@ -28,7 +28,7 @@ static struct env
 	bool exiting;
 	char *cgroupspath;
 	bool cg;
-	pid_t target_pid;
+	pid_t pid;
 	bool intercept;
 } process_env = {
 
@@ -81,7 +81,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 			fprintf(stderr, "Invalid PID %s\n", arg);
 			argp_usage(state);
 		}
-		process_env.target_pid = (int)pid;
+		process_env.pid = (int)pid;
 		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
@@ -238,7 +238,7 @@ int main(int argc, char **argv)
 	/* 通过pid获取ppid */ 
 	char cmd[128];
 	char result[16];
-	sprintf(cmd, "ps -elf |awk '$4=='%d'{print $5}'", process_env.target_pid);
+	sprintf(cmd, "ps -elf |awk '$4=='%d'{print $5}'", process_env.pid);
 	FILE *pipe = popen(cmd, "r");
 	if(!pipe)
 		return 0;
@@ -254,8 +254,8 @@ int main(int argc, char **argv)
 	pid_t ppid = atoi(result);
 
 	/* initialize global data (filtering options) */
-	obj->rodata->target_pid = process_env.target_pid;
-	obj->rodata->target_ppid = ppid; 
+	obj->rodata->targ_pid = process_env.pid;
+	obj->rodata->targ_ppid = ppid; 
 	obj->rodata->intercept = process_env.intercept;
 
 	err = procrecord_bpf__load(obj);

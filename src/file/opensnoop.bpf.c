@@ -12,6 +12,7 @@
 #include <linux/errno.h>
 
 const volatile pid_t targ_pid = 0;
+const volatile pid_t targ_ppid = 0;
 const volatile pid_t targ_tgid = 0;
 const volatile uid_t targ_uid = 0;
 const volatile bool targ_failed = false;
@@ -81,13 +82,21 @@ int BPF_PROG(file_open, struct file *file)
 	pid_t ppid;
 	ppid = BPF_CORE_READ((struct task_struct *)bpf_get_current_task(), real_parent, tgid);
 
-	// if (targ_pid && targ_pid != pid)
-	// 	return 0;
 	if (targ_pid != 0)
 	{
+		// 1. 初始化：如果当前pid == targ_pid，则把其ppid也加入map
+		pid_t tmp_pid;
+		tmp_pid = targ_pid;
+		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
+		tmp_pid = targ_ppid;
+		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
+
+		/*
 		pid_t target_pid = targ_pid;
 		// 1. 先将target_pid加入pid_map
 		bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
+		*/
+		
 		// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
 		if (bpf_map_lookup_elem(&pid_map, &ppid))
 		{
@@ -188,9 +197,19 @@ int BPF_PROG(restricted_mount, const char *dev_name, const struct path *path,
 	
 	if (targ_pid != 0)
 	{
+		// 1. 初始化：如果当前pid == targ_pid，则把其ppid也加入map
+		pid_t tmp_pid;
+		tmp_pid = targ_pid;
+		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
+		tmp_pid = targ_ppid;
+		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
+
+		/*
 		pid_t target_pid = targ_pid;
 		// 1. 先将target_pid加入pid_map
 		bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
+		*/
+
 		// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
 		if (bpf_map_lookup_elem(&pid_map, &ppid))
 		{

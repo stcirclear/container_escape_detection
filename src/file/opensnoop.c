@@ -287,7 +287,26 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	/* 通过pid获取ppid */ 
+	char cmd[128];
+	char result[16];
+	sprintf(cmd, "ps -elf |awk '$4=='%d'{print $5}'", env.pid);
+	FILE *pipe = popen(cmd, "r");
+	if(!pipe)
+		return 0;
+	
+	char buffer[128] = {0};
+	while(!feof(pipe))
+	{
+		if(fgets(buffer, 128, pipe))
+			strcat(result, buffer);
+	}
+	pclose(pipe);
+
+	pid_t ppid = atoi(result);
+
 	/* initialize global data (filtering options) */
+	obj->rodata->targ_ppid = ppid;
 	obj->rodata->targ_tgid = env.tid;
 	obj->rodata->targ_pid = env.pid;
 	obj->rodata->targ_uid = env.uid;

@@ -44,8 +44,8 @@ struct
 	__type(value, pid_t); // PID
 } pid_map SEC(".maps");
 
-const volatile pid_t target_pid = 0;
-const volatile pid_t target_ppid = 0;
+const volatile pid_t targ_pid = 0;
+const volatile pid_t targ_ppid = 0;
 
 SEC("tracepoint/sched/sched_process_exec")
 int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_exec *ctx)
@@ -62,13 +62,13 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 
 	// 分析进程权限关系
 	// 如果有传入的参数，则进行过滤，否则不过滤
-	if (target_pid != 0)
+	if (targ_pid != 0)
 	{
-		// 1. 初始化：如果当前pid == target_pid，则把其ppid也加入map
+		// 1. 初始化：如果当前pid == targ_pid，则把其ppid也加入map
 		pid_t tmp_pid;
-		tmp_pid = target_pid;
+		tmp_pid = targ_pid;
 		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
-		tmp_pid = ppid;
+		tmp_pid = targ_ppid;
 		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
 		
 		// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
