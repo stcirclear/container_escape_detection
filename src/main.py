@@ -9,6 +9,7 @@ import json
 import argparse
 import subprocess
 from multiprocessing import Process
+from platform import platform
 # from terminal_layout.extensions.choice import *
 # from terminal_layout import *
 
@@ -119,6 +120,16 @@ def start_container(cmd):
 	print("******* CONTAINER STARTED ********")
 	return container_id
 
+# 获取当前内核版本号，并转化为十进制数字，如5.8.0 -> 580
+def get_kernel_version():
+	platform_str = platform()
+	version = platform_str.split('-')[1].split('.')
+	version_num = 0
+	for item in version:
+		version_num =+ version_num * 10 + int(item)
+	print(version_num)
+	return version_num
+		
 
 # 启动监视器
 def start_monitor(pid, action):
@@ -128,11 +139,15 @@ def start_monitor(pid, action):
 	# p1 = Process(target=exec_command, args=(cmd, ))
 	# p1.start()
 
+	version = get_kernel_version()
+	need_version = 590
 	# fileopen
-	cmd = f"sudo ./opensnoop -a {action} -p {pid}"
-	print(cmd)
-	p2 = Process(target=exec_command, args=(cmd, ))
-	p2.start()
+	if(version >= need_version):
+		cmd = f"sudo ./opensnoop -a {action} -p {pid}"
+		print(cmd)
+		p2 = Process(target=exec_command, args=(cmd, ))
+		p2.start()
+	
 
 	# procrecord
 	cmd = f"sudo ./procrecord -a {action} -p {pid}"
@@ -204,7 +219,7 @@ def main():
 				return
 
 		container_id = start_container(' '.join(str_list))
-		pid = containerid_to_ppid(container_id)
+		pid = containerid_to_pid(container_id)
 		action = args.action
 		# print(pid)
 		# 启动monitor
