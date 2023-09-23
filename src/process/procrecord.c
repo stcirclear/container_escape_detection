@@ -193,6 +193,8 @@ static void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
 	fprintf(stderr, "Lost %llu events on CPU #%d!\n", lost_cnt, cpu);
 }
 
+
+
 int main(int argc, char **argv)
 {
 	LIBBPF_OPTS(bpf_object_open_opts, open_opts);
@@ -233,8 +235,27 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	/* 通过pid获取ppid */ 
+	char cmd[128];
+	char result[16];
+	sprintf(cmd, "ps -elf |awk '$4=='%d'{print $5}'", process_env.target_pid);
+	FILE *pipe = popen(cmd, "r");
+	if(!pipe)
+		return 0;
+	
+	char buffer[128] = {0};
+	while(!feof(pipe))
+	{
+		if(fgets(buffer, 128, pipe))
+			strcat(result, buffer);
+	}
+	pclose(pipe);
+
+	pid_t ppid = atoi(result);
+
 	/* initialize global data (filtering options) */
-	obj->rodata->filter_pid = process_env.target_pid;
+	obj->rodata->target_pid = process_env.target_pid;
+	obj->rodata->target_ppid = ppid; 
 	obj->rodata->intercept = process_env.intercept;
 
 	err = procrecord_bpf__load(obj);
@@ -253,7 +274,7 @@ int main(int argc, char **argv)
 	
 	// 创建log文件夹
 	system("mkdir -p log");
-
+	// 打印日志头
 	FILE *fp;
 	fp = fopen("log/procrecord.log", "a");
 	if (fp == NULL)
@@ -263,8 +284,6 @@ int main(int argc, char **argv)
 
 	fprintf(fp, "%-8s %-16s %-6s %-12s %-12s %-16s %-8s\n", "[P]PROC", "COMM", "PID", "PID_NS", "MNT_NS", "CAP", "ROOT_INO");
 	fclose(fp);
-	
-	// printf("%-16s %-6s %-6s %-10s %-10s %3s %s\n", "PCOMM", "PID", "PPID", "PID_NS", "MNT_NS", "RET", "ARGS");
 
 	/* setup event callbacks */
 	pb = perf_buffer__new(bpf_map__fd(obj->maps.process_event_pb), PERF_BUFFER_PAGES,

@@ -44,7 +44,8 @@ struct
 	__type(value, pid_t); // PID
 } pid_map SEC(".maps");
 
-const volatile pid_t filter_pid = 0;
+const volatile pid_t target_pid = 0;
+const volatile pid_t target_ppid = 0;
 
 SEC("tracepoint/sched/sched_process_exec")
 int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_exec *ctx)
@@ -61,11 +62,15 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 
 	// 分析进程权限关系
 	// 如果有传入的参数，则进行过滤，否则不过滤
-	if (filter_pid != 0)
+	if (target_pid != 0)
 	{
-		pid_t target_pid = filter_pid;
-		// 1. 先将target_pid加入pid_map
-		bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
+		// 1. 初始化：如果当前pid == target_pid，则把其ppid也加入map
+		pid_t tmp_pid;
+		tmp_pid = target_pid;
+		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
+		tmp_pid = ppid;
+		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
+		
 		// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
 		if (bpf_map_lookup_elem(&pid_map, &ppid))
 		{
@@ -102,10 +107,10 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	e.cap[1] = cap.cap[1];
 
 
-	bpf_printk("%s p_cap:%x %x", e.comm, e.p_cap[0], e.p_cap[1]);
-	bpf_printk("%s   cap:%x %x", e.comm, e.cap[0], e.cap[1]);
+	bpf_printk("%s p_cap:%x %x\n", e.comm, e.p_cap[0], e.p_cap[1]);
+	bpf_printk("%s   cap:%x %x\n", e.comm, e.cap[0], e.cap[1]);
 	if(e.p_cap[0] < e.cap[0] || e.p_cap[1] < e.cap[1]) {
-		bpf_printk("!ERROR! pid: %d capability elevated!", e.pid);
+		bpf_printk("!ERROR! pid: %d capability elevated!\n", e.pid);
 		e.cap_err = true;
 		if (intercept)
 		{
@@ -115,10 +120,10 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 
 	e.p_pid_ns = BPF_CORE_READ(task, real_parent, nsproxy, pid_ns_for_children, ns.inum);
 	e.p_mnt_ns = BPF_CORE_READ(task, real_parent, nsproxy, mnt_ns, ns.inum);
-	bpf_printk("%s p_ns:%x %x", e.comm, e.pid_ns, e.mnt_ns);
-	bpf_printk("%s   ns:%x %x", e.comm, e.p_pid_ns, e.p_mnt_ns);
+	bpf_printk("%s p_ns:%x %x\n", e.comm, e.pid_ns, e.mnt_ns);
+	bpf_printk("%s   ns:%x %x\n", e.comm, e.p_pid_ns, e.p_mnt_ns);
 	if(e.p_pid_ns > e.pid_ns || e.p_mnt_ns > e.mnt_ns) {
-		bpf_printk("!ERROR! pid: %d namespace changed!", e.pid);
+		bpf_printk("!ERROR! pid: %d namespace changed!\n", e.pid);
 		e.ns_err = true;
 		if (intercept)
 		{
@@ -130,11 +135,11 @@ int tracepoint__sched__sched_process_exec(struct trace_event_raw_sched_process_e
 	// fs_struct *fs
 	e.root_ino = BPF_CORE_READ(task, fs, root.dentry, d_inode, i_ino);
 	e.p_root_ino = BPF_CORE_READ(task, real_parent, fs, root.dentry, d_inode, i_ino);
-	bpf_printk("%s p_ino:%lu", e.comm, e.p_root_ino);
-	bpf_printk("%s   ino:%lu", e.comm, e.root_ino);
+	bpf_printk("%s p_ino:%lu\n", e.comm, e.p_root_ino);
+	bpf_printk("%s   ino:%lu\n", e.comm, e.root_ino);
 	// 工作目录比较
 	if(e.p_root_ino > e.root_ino){
-		bpf_printk("!ERROR! pid: %d root fs changed!", e.pid);
+		bpf_printk("!ERROR! pid: %d root fs changed!\n", e.pid);
 		e.fs_err = true;
 		if (intercept)
 		{
