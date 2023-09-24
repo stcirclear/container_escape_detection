@@ -42,7 +42,7 @@ for UUID in $(docker ps -q); do
 	name=${name#/}
 
 	get_ppid=$(ps -elf |awk '$4=='$pid'{print $5}')
-    ppid=$get_ppid
+	ppid=$get_ppid
 
 	printf "%-14s %-20.20s %6d %6d %-16.16s" $UUID $name $pid $ppid $path
 

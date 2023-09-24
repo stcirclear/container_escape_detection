@@ -174,6 +174,7 @@ int BPF_PROG(file_open, struct file *file)
 
 out:
 	e.flags = 0;
+	e.ret = ret;
 	bpf_perf_event_output((void *)ctx, &events, BPF_F_CURRENT_CPU, &e, sizeof(e));
 	return ret;
 }
@@ -258,7 +259,7 @@ int BPF_PROG(restricted_mount, const char *dev_name, const struct path *path,
 			goto out;
 		}
 	}
-	blackname = "/dev/sda1";
+	blackname = "/dev/sda3";
 	sz = strlen(blackname, NAME_MAX);
 	if (strcmp(e.fname, blackname, sz) == 0)
 	{
@@ -272,6 +273,7 @@ int BPF_PROG(restricted_mount, const char *dev_name, const struct path *path,
 
 out:
 	e.flags = 0;
+	e.ret = ret;
 	bpf_perf_event_output((void *)ctx, &events, BPF_F_CURRENT_CPU, &e, sizeof(e));
 	return ret;
 }

@@ -20,7 +20,7 @@
 #define PERF_BUFFER_TIME_MS 10
 
 /* Set the poll timeout when no events occur. This can affect -d accuracy. */
-#define PERF_POLL_TIMEOUT_MS 100
+#define PERF_POLL_TIMEOUT_MS 300
 
 struct syscall_env
 {
@@ -30,14 +30,15 @@ struct syscall_env
 	char *cgroupspath;
 	// file cgroup
 	bool filter_cg;
-	pid_t filter_pid;
+	pid_t targ_pid;
 	// the min sample duration in ms
 	long min_duration_ms;
 	// the times syscall a process is sampled
 	unsigned char filter_report_times;
+	bool intercept;
 } syscall_env = {
 	.min_duration_ms = 100,
-	// .filter_pid = 3860
+	.filter_report_times = 100
 };
 
 #define warn(...) fprintf(stderr, __VA_ARGS__)
@@ -47,20 +48,65 @@ const char *argp_program_bug_address =
 const char argp_program_doc[] =
 	"Trace syscall\n"
 	"\n"
-	"USAGE: syscall [-p] [-c]\n"
+	"USAGE: syscall -a alert/intercept [-p] [-c]\n"
 	"\n"
 	"EXAMPLES:\n"
 	"   ./syscall           # trace all exec() syscalls\n"
-	"   ./syscall -p PID    # trace syscall PID\n"
+	"   ./syscall -a alert -p PID    # trace syscall PID and alert\n"
 	"   ./syscall -c CG     # Trace syscall under cgroupsPath CG\n";
 
 static const struct argp_option opts[] = {
+	{"action", 'a', "ACTION", 0, "do this action when bad things happen"},
 	{"pid", 'p', "PID", 0, "trace process PID and its all child processes"},
 	{"verbose", 'v', NULL, 0, "Verbose debug output"},
 	{"cgroup", 'c', "/sys/fs/cgroup/unified", 0, "Trace syscall in cgroup path"},
 	{NULL, 'h', NULL, OPTION_HIDDEN, "Show the full help"},
 	{},
 };
+
+
+static error_t parse_arg(int key, char *arg, struct argp_state *state)
+{
+	int pid;
+
+	switch (key)
+	{
+	case 'h':
+		argp_state_help(state, stderr, ARGP_HELP_STD_HELP);
+		break;
+	case 'a':
+		if(strcmp(arg, "alert") == 0) {
+			syscall_env.intercept = false;
+		} else if(strcmp(arg, "intercept") == 0) {
+			syscall_env.intercept = true;
+		} else {
+			printf("Parama error: -a should be alter/intercept!\n");
+			return ARGP_ERR_UNKNOWN;
+		}
+		break;
+	case 'p':
+		errno = 0;
+		pid = atoi(arg);
+		if (errno || pid < 0 || pid >= INT_MAX)
+		{
+			fprintf(stderr, "Invalid PID %s\n", arg);
+			argp_usage(state);
+		}
+		syscall_env.targ_pid = (int)pid;
+		break;
+	case 'v':
+		syscall_env.verbose = true;
+		break;
+	case 'c':
+		syscall_env.cgroupspath = arg;
+		syscall_env.filter_cg = true;
+		break;
+	default:
+		return ARGP_ERR_UNKNOWN;
+	}
+	return 0;
+}
+
 
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
 {
@@ -83,53 +129,26 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	char ts[32];
 	char syscall_name_buf[32];
 	time_t t;
+	FILE *fp;
+	fp = fopen("log/sysrecord.log", "a");
 
 	time(&t);
 	tm = localtime(&t);
 	strftime(ts, sizeof(ts), "%H:%M:%S", tm);
 
 	syscall_name(e->syscall_id, syscall_name_buf, sizeof(syscall_name_buf));
-	printf("%-8s %-16s %-7d %-7d [%lu] %-10u %-15s\n",
-		   ts, e->comm, e->pid, e->ppid, e->mntns, e->syscall_id, syscall_name_buf);
-
+	if(e->occur_times >= syscall_env.filter_report_times) {
+		fprintf(fp, "[ERROR] Frequent syscall: %s over %d times\n", syscall_name_buf, syscall_env.filter_report_times);
+	}
+	
+	fprintf(fp, "%-8s %-16s %-7d %-7d [%lu] %-10u %-15s %-11d\n", ts, e->comm, e->pid, e->ppid, e->mntns, e->syscall_id, syscall_name_buf, e->occur_times);
+	fclose(fp);
 	return;
 }
 
 void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
 {
 	fprintf(stderr, "Lost %llu events on CPU #%d!\n", lost_cnt, cpu);
-}
-
-static error_t parse_arg(int key, char *arg, struct argp_state *state)
-{
-	int pid;
-
-	switch (key)
-	{
-	case 'h':
-		argp_state_help(state, stderr, ARGP_HELP_STD_HELP);
-		break;
-	case 'p':
-		errno = 0;
-		pid = atoi(arg);
-		if (errno || pid < 0 || pid >= INT_MAX)
-		{
-			fprintf(stderr, "Invalid PID %s\n", arg);
-			argp_usage(state);
-		}
-		syscall_env.filter_pid = (int)pid;
-		break;
-	case 'v':
-		syscall_env.verbose = true;
-		break;
-	case 'c':
-		syscall_env.cgroupspath = arg;
-		syscall_env.filter_cg = true;
-		break;
-	default:
-		return ARGP_ERR_UNKNOWN;
-	}
-	return 0;
 }
 
 int main(int argc, char **argv)
@@ -153,9 +172,14 @@ int main(int argc, char **argv)
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
 
+	// 创建log文件夹
+	system("mkdir -p log");
+
+	FILE *fp;
+	fp = fopen("log/sysrecord.log", "a");
 	/* syscall events */
-	printf("%-8s %-16s %-7s %-7s %-12s %-10s %-15s\n",
-		   "TIME", "COMM", "PID", "PPID", "MNT_NS", "SYSCALL_ID", "SYSCALL_NAME");
+	fprintf(fp, "%-8s %-16s %-7s %-7s %-12s %-10s %-15s %-11s\n", "TIME", "COMM", "PID", "PPID", "MNT_NS", "SYSCALL_ID", "SYSCALL_NAME", "OCCUR_TIMES");
+	fclose(fp);
 
 	syscall_env.exiting = &exiting;
 
@@ -178,10 +202,30 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	skel->rodata->filter_pid = syscall_env.filter_pid;
+	/* 通过pid获取ppid */ 
+	char cmd[128];
+	char result[16];
+	sprintf(cmd, "ps -elf |awk '$4=='%d'{print $5}'", syscall_env.targ_pid);
+	FILE *pipe = popen(cmd, "r");
+	if(!pipe)
+		return 0;
+	
+	char buffer[128] = {0};
+	while(!feof(pipe))
+	{
+		if(fgets(buffer, 128, pipe))
+			strcat(result, buffer);
+	}
+	pclose(pipe);
+
+	pid_t ppid = atoi(result);
+
+	skel->rodata->targ_pid = syscall_env.targ_pid;
+	skel->rodata->targ_ppid = ppid;
 	skel->rodata->filter_cg = syscall_env.filter_cg;
-	skel->rodata->filter_report_times = 100;
-	skel->rodata->min_duration_ns = 100;
+	skel->rodata->filter_report_times = syscall_env.filter_report_times;
+	skel->rodata->min_duration_ns = syscall_env.min_duration_ms * 1000;
+	skel->rodata->intercept = syscall_env.intercept;
 	init_syscall_names();
 
 	/* update cgroup path fd to map */

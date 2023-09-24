@@ -132,14 +132,15 @@ def get_kernel_version():
 def start_monitor(pid, action):
 	print("\033[0;32m****** STARTING THE MONITOR ******\033[0m")
 	# sysrecord
-	# cmd = f"sudo ./sysrecord -p {pid}"
-	# p1 = Process(target=exec_command, args=(cmd, ))
-	# p1.start()
+	cmd = f"sudo ./sysrecord -a {action} -p {pid}"
+	print("\033[1;32m Execute:\033[0m \033[0;32m%s\033[0m" % cmd)
+	p1 = Process(target=exec_command, args=(cmd, ))
+	p1.start()
 
 	version = get_kernel_version()
 	version_num = 0
 	for item in version.split('.'):
-		version_num =+ version_num * 10 + int(item)
+		version_num = version_num * 10 + int(item)
 	need_version = 590
 	print("\033[0;32m Current Kernel Version is %s\033[0m" % version)
 	# fileopen

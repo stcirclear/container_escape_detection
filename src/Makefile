@@ -16,7 +16,8 @@ VMLINUX := ../vmlinux/$(ARCH)/vmlinux.h
 INCLUDES := -I$(OUTPUT) -I../libbpf/include/uapi -I./utils -I$(dir $(VMLINUX))
 CFLAGS := -g -Wall
 
-APPS = opensnoop execsnoop syscount sysrecord procrecord filerecord
+APPS = opensnoop sysrecord procrecord
+# execsnoop syscount filerecord
 
 COMMON_OBJ = \
 	$(OUTPUT)/trace_helpers.o \

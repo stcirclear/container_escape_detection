@@ -11,6 +11,9 @@
 /*.txt
 /trivy
 /test.py
+/monitor.sh
+
+/analysis
 
 /file/opensnoop.bpf (copy).c
 /file/restrictedfile.bpf.c
@@ -25,3 +28,7 @@
 /process/execsnoop.bpf.c
 /process/execsnoop.c
 /process/execsnoop.h
+
+/syscall/syscount.bpf.c
+/syscall/syscount.c
+/syscall/syscount.h
