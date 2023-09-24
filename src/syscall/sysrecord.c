@@ -181,7 +181,7 @@ int main(int argc, char **argv)
 	/* 通过pid获取ppid */ 
 	char cmd[128];
 	char result[16];
-	sprintf(cmd, "ps -elf |awk '$4=='%d'{print $5}'", syscall_env.pid);
+	sprintf(cmd, "ps -elf |awk '$4=='%d'{print $5}'", syscall_env.targ_pid);
 	FILE *pipe = popen(cmd, "r");
 	if(!pipe)
 		return 0;
