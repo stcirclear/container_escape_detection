@@ -28,7 +28,7 @@ static struct env
 	bool exiting;
 	char *cgroupspath;
 	bool cg;
-	pid_t target_pid;
+	pid_t pid;
 	bool intercept;
 } process_env = {
 
@@ -81,7 +81,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 			fprintf(stderr, "Invalid PID %s\n", arg);
 			argp_usage(state);
 		}
-		process_env.target_pid = (int)pid;
+		process_env.pid = (int)pid;
 		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
@@ -173,16 +173,7 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	{
 		return;
 	}
-	fprintf(fp, "%-8s %-16s %-6d [0x%x] [0x%x] [0x%x %x] %-8lu\n", "PPROC:", e->comm, e->pid, e->pid_ns, e->mnt_ns, e->cap[0], e->cap[1], e->root_ino);
-	fprintf(fp, "%-8s %-16s %-6d [0x%x] [0x%x] [0x%x %x] %-8lu\n", "PROC:", e->comm, e->ppid, e->p_pid_ns, e->p_mnt_ns, e->p_cap[0], e->p_cap[1], e->p_root_ino);
-	fclose(fp);
-
-	fp = fopen("log/error.log", "a");
-	if (fp == NULL)
-	{
-		return;
-	}
-
+	
 	if (e->cap_err)
 	{
 		fprintf(fp, "[ERROR] pid: %d cap changed!\n", e->pid);
@@ -191,6 +182,8 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	} else if (e->ns_err) {
 		fprintf(fp, "[ERROR] pid: %d ns changed!\n", e->pid);
 	}
+	fprintf(fp, "%-8s %-16s %-6d [0x%x] [0x%x] [0x%x %x] %-8lu\n", "PPROC:", e->comm, e->ppid, e->p_pid_ns, e->p_mnt_ns, e->p_cap[0], e->p_cap[1], e->p_root_ino);
+	fprintf(fp, "%-8s %-16s %-6d [0x%x] [0x%x] [0x%x %x] %-8lu\n", "PROC:", e->comm, e->pid, e->pid_ns, e->mnt_ns, e->cap[0], e->cap[1], e->root_ino);
 	fclose(fp);
 }
 
@@ -199,6 +192,8 @@ static void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
 	printf("Debuge: In handle_lost_event\n");
 	fprintf(stderr, "Lost %llu events on CPU #%d!\n", lost_cnt, cpu);
 }
+
+
 
 int main(int argc, char **argv)
 {
@@ -240,8 +235,27 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	/* 通过pid获取ppid */ 
+	char cmd[128];
+	char result[16];
+	sprintf(cmd, "ps -elf |awk '$4=='%d'{print $5}'", process_env.pid);
+	FILE *pipe = popen(cmd, "r");
+	if(!pipe)
+		return 0;
+	
+	char buffer[128] = {0};
+	while(!feof(pipe))
+	{
+		if(fgets(buffer, 128, pipe))
+			strcat(result, buffer);
+	}
+	pclose(pipe);
+
+	pid_t ppid = atoi(result);
+
 	/* initialize global data (filtering options) */
-	obj->rodata->filter_pid = process_env.target_pid;
+	obj->rodata->targ_pid = process_env.pid;
+	obj->rodata->targ_ppid = ppid; 
 	obj->rodata->intercept = process_env.intercept;
 
 	err = procrecord_bpf__load(obj);
@@ -258,7 +272,9 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 	
-	// 打开log文件
+	// 创建log文件夹
+	system("mkdir -p log");
+	// 打印日志头
 	FILE *fp;
 	fp = fopen("log/procrecord.log", "a");
 	if (fp == NULL)
@@ -268,8 +284,6 @@ int main(int argc, char **argv)
 
 	fprintf(fp, "%-8s %-16s %-6s %-12s %-12s %-16s %-8s\n", "[P]PROC", "COMM", "PID", "PID_NS", "MNT_NS", "CAP", "ROOT_INO");
 	fclose(fp);
-	
-	// printf("%-16s %-6s %-6s %-10s %-10s %3s %s\n", "PCOMM", "PID", "PPID", "PID_NS", "MNT_NS", "RET", "ARGS");
 
 	/* setup event callbacks */
 	pb = perf_buffer__new(bpf_map__fd(obj->maps.process_event_pb), PERF_BUFFER_PAGES,
