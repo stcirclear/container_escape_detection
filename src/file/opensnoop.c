@@ -337,6 +337,9 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
+	// 创建log文件夹
+	system("mkdir -p log");
+
 	/* print headers */
 	if (env.timestamp)
 		printf("%-8s ", "TIME");
