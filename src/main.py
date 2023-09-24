@@ -124,9 +124,10 @@ def start_container(cmd):
 def start_monitor(pid, action):
 	print("****** STARTING THE MONITOR ******")
 	# sysrecord
-	# cmd = f"sudo ./sysrecord -p {pid}"
-	# p1 = Process(target=exec_command, args=(cmd, ))
-	# p1.start()
+	cmd = f"sudo ./sysrecord -a {action} -p {pid}"
+	print("\033[1;32m Execute:\033[0m \033[0;32m%s\033[0m" % cmd)
+	p1 = Process(target=exec_command, args=(cmd, ))
+	p1.start()
 
 	# fileopen
 	cmd = f"sudo ./opensnoop -a {action} -p {pid}"
