@@ -203,7 +203,12 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	char ts[32];
 	time_t t;
 	int fd, err;
-
+	FILE *fp;
+	fp = fopen("log/opensnoop.log", "a");
+	if (fp == NULL)
+	{
+		return;
+	}
 	/* name filtering is currently done in user space */
 	if (env.name && strstr(e->comm, env.name) == NULL)
 		return;
@@ -222,6 +227,7 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	}
 	else
 	{
+		fprintf(fp, "[ERROR] pid: %d file/mount error!\n", e->pid);
 		fd = -1;
 		err = -e->ret;
 	}
@@ -246,6 +252,8 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 		sps_cnt += 9;
 	}
 	printf("%s\n", e->fname);
+	fprintf(fp, "%-8s %-16s %-6d %-6d %-6d %-16s\n", "PROC:", e->comm, e->pid, fd, err, e->fname);
+	fclose(fp);
 }
 
 void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
@@ -294,7 +302,7 @@ int main(int argc, char **argv)
 	FILE *pipe = popen(cmd, "r");
 	if(!pipe)
 		return 0;
-	
+
 	char buffer[128] = {0};
 	while(!feof(pipe))
 	{
@@ -351,6 +359,14 @@ int main(int argc, char **argv)
 	printf("%s", "PATH");
 
 	printf("\n");
+	FILE *fp;
+	fp = fopen("log/opensnoop.log", "a");
+	if (fp == NULL)
+	{
+		return 0;
+	}
+	fprintf(fp, "%-8s %-16s %-6s %-6s %-6s %-16s\n", "PROC", "COMM", "PID", "FD", "ERR", "FNAME");
+	fclose(fp);
 
 	/* setup event callbacks */
 	pb = perf_buffer__new(bpf_map__fd(obj->maps.events), PERF_BUFFER_PAGES,

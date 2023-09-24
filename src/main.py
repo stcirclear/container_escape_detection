@@ -139,7 +139,7 @@ def start_monitor(pid, action):
 	version = get_kernel_version()
 	version_num = 0
 	for item in version.split('.'):
-		version_num =+ version_num * 10 + int(item)
+		version_num = version_num * 10 + int(item)
 	need_version = 590
 	print("\033[0;32m Current Kernel Version is %s\033[0m" % version)
 	# fileopen
