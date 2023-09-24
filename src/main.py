@@ -200,7 +200,7 @@ def main():
 		action = args.action
 		# print(pid)
 		# 启动monitor
-		get_dockerinfo()
+		# get_dockerinfo()
 		start_monitor(pid, action)
 	elif hasattr(args, 'command') and hasattr(args, 'action'):
 		if hasattr(args, 'scan'):
@@ -227,7 +227,7 @@ def main():
 		action = args.action
 		# print(pid)
 		# 启动monitor
-		get_dockerinfo()
+		# get_dockerinfo()
 		start_monitor(pid, action)
 
 
