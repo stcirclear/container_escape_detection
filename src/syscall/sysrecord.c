@@ -30,14 +30,14 @@ struct syscall_env
 	char *cgroupspath;
 	// file cgroup
 	bool filter_cg;
-	pid_t filter_pid;
+	pid_t targ_pid;
 	// the min sample duration in ms
 	long min_duration_ms;
 	// the times syscall a process is sampled
 	unsigned char filter_report_times;
 } syscall_env = {
 	.min_duration_ms = 100,
-	// .filter_pid = 3860
+	// .targ_pid = 3860
 };
 
 #define warn(...) fprintf(stderr, __VA_ARGS__)
@@ -117,7 +117,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 			fprintf(stderr, "Invalid PID %s\n", arg);
 			argp_usage(state);
 		}
-		syscall_env.filter_pid = (int)pid;
+		syscall_env.targ_pid = (int)pid;
 		break;
 	case 'v':
 		syscall_env.verbose = true;
@@ -178,7 +178,26 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	skel->rodata->filter_pid = syscall_env.filter_pid;
+	/* 通过pid获取ppid */ 
+	char cmd[128];
+	char result[16];
+	sprintf(cmd, "ps -elf |awk '$4=='%d'{print $5}'", syscall_env.pid);
+	FILE *pipe = popen(cmd, "r");
+	if(!pipe)
+		return 0;
+	
+	char buffer[128] = {0};
+	while(!feof(pipe))
+	{
+		if(fgets(buffer, 128, pipe))
+			strcat(result, buffer);
+	}
+	pclose(pipe);
+
+	pid_t ppid = atoi(result);
+
+	skel->rodata->targ_pid = syscall_env.targ_pid;
+	skel->rodata->targ_ppid = ppid;
 	skel->rodata->filter_cg = syscall_env.filter_cg;
 	skel->rodata->filter_report_times = 100;
 	skel->rodata->min_duration_ns = 100;

@@ -6,7 +6,8 @@
 
 const volatile bool filter_cg = false;
 const volatile unsigned char filter_report_times = 0;
-const volatile pid_t filter_pid = 0;
+const volatile pid_t targ_pid = 0;
+const volatile pid_t targ_ppid = 0;
 const volatile unsigned long long min_duration_ns = 0;
 volatile unsigned long long last_ts = 0;
 
@@ -108,24 +109,27 @@ int sys_enter(struct trace_event_raw_sys_enter *args)
 	pid = bpf_get_current_pid_tgid() >> 32;
 	ppid = BPF_CORE_READ(task, real_parent, tgid);
 
-	if (filter_pid)
+	// 分析进程权限关系
+	// 如果有传入的参数，则进行过滤，否则不过滤
+	if (targ_pid != 0)
 	{
-		/* first time: add filter_pid to pid_map */
-		u32 zero = 0;
-		pid_t target_pid = filter_pid;
-		// TODO:新建一个变量，不要修改这个filter_pid？？？
-		if (bpf_map_lookup_elem(&pid_map, &target_pid) == NULL)
-		{
-			bpf_map_update_elem(&pid_map, &target_pid, &zero, BPF_ANY);
-		}
-
-		/* ppid in pid_map, add pid to pid_map*/
+		// 1. 初始化：如果当前pid == targ_pid，则把其ppid也加入map
+		pid_t tmp_pid;
+		tmp_pid = targ_pid;
+		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
+		tmp_pid = targ_ppid;
+		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
+		
+		// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
 		if (bpf_map_lookup_elem(&pid_map, &ppid))
+		{
 			bpf_map_update_elem(&pid_map, &pid, &pid, BPF_NOEXIST);
-
+		}
 		// 3. 如果当前进程及父进程都不在pid_map，则返回
 		if (bpf_map_lookup_elem(&pid_map, &pid) == NULL && bpf_map_lookup_elem(&pid_map, &ppid) == NULL)
+		{
 			return 0;
+		}
 	}
 
 	mntns = BPF_CORE_READ(task, nsproxy, mnt_ns, ns.inum);
