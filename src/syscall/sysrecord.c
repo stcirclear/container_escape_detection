@@ -20,7 +20,7 @@
 #define PERF_BUFFER_TIME_MS 10
 
 /* Set the poll timeout when no events occur. This can affect -d accuracy. */
-#define PERF_POLL_TIMEOUT_MS 100
+#define PERF_POLL_TIMEOUT_MS 300
 
 struct syscall_env
 {
@@ -83,15 +83,20 @@ static void handle_event(void *ctx, int cpu, void *data, __u32 data_sz)
 	char ts[32];
 	char syscall_name_buf[32];
 	time_t t;
+	FILE *fp;
+	fp = fopen("log/sysrecord.log", "a");
 
 	time(&t);
 	tm = localtime(&t);
 	strftime(ts, sizeof(ts), "%H:%M:%S", tm);
 
 	syscall_name(e->syscall_id, syscall_name_buf, sizeof(syscall_name_buf));
-	printf("%-8s %-16s %-7d %-7d [%lu] %-10u %-15s\n",
-		   ts, e->comm, e->pid, e->ppid, e->mntns, e->syscall_id, syscall_name_buf);
-
+	if(e->occur_times >= syscall_env.filter_report_times) {
+		fprintf(fp, "[ERROR] Frequent syscall: %s over %d times\n", syscall_name_buf, syscall_env.filter_report_times);
+	}
+	
+	fprintf(fp, "%-8s %-16s %-7d %-7d [%lu] %-10u %-15s %-11d\n", ts, e->comm, e->pid, e->ppid, e->mntns, e->syscall_id, syscall_name_buf, e->occur_times);
+	fclose(fp);
 	return;
 }
 
@@ -153,9 +158,14 @@ int main(int argc, char **argv)
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
 
+	// 创建log文件夹
+	system("mkdir -p log");
+
+	FILE *fp;
+	fp = fopen("log/sysrecord.log", "a");
 	/* syscall events */
-	printf("%-8s %-16s %-7s %-7s %-12s %-10s %-15s\n",
-		   "TIME", "COMM", "PID", "PPID", "MNT_NS", "SYSCALL_ID", "SYSCALL_NAME");
+	fprintf(fp, "%-8s %-16s %-7s %-7s %-12s %-10s %-15s %-11s\n", "TIME", "COMM", "PID", "PPID", "MNT_NS", "SYSCALL_ID", "SYSCALL_NAME", "OCCUR_TIMES");
+	fclose(fp);
 
 	syscall_env.exiting = &exiting;
 

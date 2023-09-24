@@ -148,7 +148,8 @@ int sys_enter(struct trace_event_raw_sys_enter *args)
         else if (filter_report_times){
             if( syscall_value[syscall_id] >= filter_report_times) {
                 // reach times, submit event
-                submit_event(args, task, pid, mntns, syscall_id, filter_report_times);
+                submit_event(args, task, pid, mntns, syscall_id, syscall_value[syscall_id]);
+				//syscall_value[syscall_id]++;
                 syscall_value[syscall_id] = 1;
             } else {
                 syscall_value[syscall_id]++;
