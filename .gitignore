@@ -5,4 +5,4 @@ src/__pycache__/
 .idea/
 */.output/
 src/*/.output/*
-src/*.log
+src/log/
