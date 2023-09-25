@@ -17,7 +17,7 @@ RUN apt-get update && \
 FROM builder AS build
 WORKDIR /container_monitor
 COPY . /container_monitor
-RUN make -C src/ opensnoop && cp /container_monitor/src/opensnoop /container_monitor/opensnoop && cp /container_monitor/src/dockerpsns.sh /container_monitor/dockerpsns.sh
+RUN make -C src/ all && cp /container_monitor/src/opensnoop /container_monitor/opensnoop && cp /container_monitor/src/procrecord /container_monitor/procrecord && cp /container_monitor/src/sysrecord /container_monitor/sysrecord && cp /container_monitor/src/dockerpsns.sh /container_monitor/dockerpsns.sh
 RUN wget https://download.docker.com/linux/static/stable/x86_64/docker-17.03.0-ce.tgz \
 	&& tar xf ./docker-17.03.0-ce.tgz && cp ./docker/docker ../usr/local/bin/docker
 	# && ln -s /docker docker
