@@ -46,10 +46,13 @@ sudo python3 main.py -a alert/intercept run -c "sudo docker run -itd --rm --name
 # monitor表示只启动检测系统，-p后的参数为需要监控的容器的进程号
 sudo python3 main.py -a alert monitor -p 1234
 ```
-
+5. 容器方式
+```shell
+sudo docker run --rm -it --pid=host --cgroupns=host -v /home/ubuntu/Documents/container_escape_detection/src/main.py:/main.py -v /sys/kernel/:/sys/kernel/ -v /sys/fs/bpf/:/sys/fs/bpf/ -v /var/run/docker.sock:/var/run/docker.sock -v /home/ubuntu/Documents/container_escape_detection/src/log/:/container_monitor/log/ --privileged monitor:v3 /main.py -a intercept run -c "sudo docker run -itd --rm --name=test3 ubuntu /bin/bash"
+```
 ## 说明
 ### 1. 
-由于seccomp文件只能在容器启动时（？是否有别的方案）进行设置，暂时考虑容器的两种情况：
+由于seccomp文件只能在容器启动时进行设置，暂时考虑容器的两种情况：
 
 （1）容器已经启动 （2）容器使用main.py启动
 
@@ -64,9 +67,7 @@ sudo apt install libseccomp-dev libseccomp2 seccomp
 ```
 
 ### 2.
-只做监控或许不够，也要有“响应”？方便展示如何对逃逸进行了防御
-
-参考[bouheki](https://github.com/mrtc0/bouheki/tree/master/pkg/bpf/c)这个，可以对file、mount设置黑名单，但是这个功能需要高版本内核（Linux Kernel >= 5.8.0），可以用ubuntu20.10测试
+只做监控或许不够，也要有“响应”。参考[bouheki](https://github.com/mrtc0/bouheki/tree/master/pkg/bpf/c)这个，可以对file、mount设置黑名单，但是这个功能需要高版本内核（Linux Kernel >= 5.8.0），可以用ubuntu20.10测试
 
 
 ## 检测漏洞
