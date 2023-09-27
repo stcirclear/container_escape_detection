@@ -90,7 +90,6 @@ chroot /host
 
 ### 2. CVE-2022-0492
 ```shell
-# 只输出到日志，不中断
 sudo python3 main.py -a alert/intercept run -c "sudo docker run -itd --security-opt apparmor=unconfined --security-opt seccomp=unconfined --name=cve0492 --rm ubuntu /bin/bash"
 
 ```
