@@ -146,18 +146,6 @@ int sys_enter(struct trace_event_raw_sys_enter *args)
 			syscall_value[syscall_id] = 1;
             return 0;
         }
-		/*
-        else if (filter_report_times){
-            if( syscall_value[syscall_id] >= filter_report_times) {
-                // reach times, submit event
-                submit_event(args, task, pid, mntns, syscall_id, syscall_value[syscall_id]);
-				//syscall_value[syscall_id]++;
-                syscall_value[syscall_id] = 1;
-				if (intercept) bpf_send_signal(9);
-            } else {
-                syscall_value[syscall_id]++;
-            }
-        } */ 
 		// 在一段时间（min_duration_ns）里某一系统调用超过阈值则报告问题
 		else if (min_duration_ns) {
             u64 ts = bpf_ktime_get_ns();

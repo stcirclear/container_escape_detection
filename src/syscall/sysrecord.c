@@ -38,7 +38,7 @@ struct syscall_env
 	bool intercept;
 } syscall_env = {
 	.min_duration_ms = 100,
-	.filter_report_times = 100
+	.filter_report_times = 500
 };
 
 #define warn(...) fprintf(stderr, __VA_ARGS__)

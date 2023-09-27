@@ -90,12 +90,6 @@ int BPF_PROG(file_open, struct file *file)
 		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
 		tmp_pid = targ_ppid;
 		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
-
-		/*
-		pid_t target_pid = targ_pid;
-		// 1. 先将target_pid加入pid_map
-		bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
-		*/
 		
 		// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
 		if (bpf_map_lookup_elem(&pid_map, &ppid))
@@ -126,17 +120,6 @@ int BPF_PROG(file_open, struct file *file)
 		return 0;
 	}
 
-	// struct callback_ctx cb = { .path = e.fname, .found = false};
-	// cb.found = false;
-	// bpf_for_each_map_elem(&denied_access_files, cb_check_path, &cb, 0);
-	// if (cb.found) {
-	// 	bpf_printk("Access Denied: %s\n", cb.path);
-	// 	ret = -EPERM;
-	// }
-
-	// const unsigned char* blacknames[7] = {"/home/test.c", "/etc/passwd", "/root/.ssh", "/proc/sys", "/proc/sysrq-trigger", "/sys/kernel", "/proc/sys/kernel"};
-	// if (intercept)
-	// {
 	const unsigned char* blackname = "/home/test.c";
 	size_t sz = strlen(blackname, NAME_MAX);
 	if (strcmp(e.fname, blackname, sz) == 0)
@@ -170,7 +153,6 @@ int BPF_PROG(file_open, struct file *file)
 			goto out;
 		}
 	}
-	// }
 
 out:
 	e.flags = 0;
@@ -204,12 +186,6 @@ int BPF_PROG(restricted_mount, const char *dev_name, const struct path *path,
 		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
 		tmp_pid = targ_ppid;
 		bpf_map_update_elem(&pid_map, &tmp_pid, &tmp_pid, BPF_NOEXIST);
-
-		/*
-		pid_t target_pid = targ_pid;
-		// 1. 先将target_pid加入pid_map
-		bpf_map_update_elem(&pid_map, &target_pid, &target_pid, BPF_NOEXIST);
-		*/
 
 		// 2. 如果当前进程的父进程是否在pid_map，则将当前进程加入pid_map
 		if (bpf_map_lookup_elem(&pid_map, &ppid))

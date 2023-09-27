@@ -321,16 +321,6 @@ int main(int argc, char **argv)
 	obj->rodata->targ_failed = env.failed;
 	obj->rodata->intercept = env.intercept;
 
-	// int map_fd = bpf_object__find_map_fd_by_name(obj, "denied_access_files");
-	// const unsigned char* blacknames[7] = {"/home/test.c", "/etc/passwd", "/root/.ssh", "/proc/sys", "/proc/sysrq-trigger", "/sys/kernel", "/proc/sys/kernel"};
-	// for (int i = 0; i < 7; i ++ )
-	// {
-	// 	int idx = i;
-	// 	struct file_path *fp = malloc(sizeof(struct file_path));
-	// 	memcpy(fp->path, blacknames[i], strlen(blacknames[i]));
-	// 	bpf_map_update_elem(map_fd, &idx, fp, 0);
-	// }
-
 	err = opensnoop_bpf__load(obj);
 	if (err)
 	{

@@ -88,68 +88,7 @@ static error_t parse_arg(int key, char *arg, struct argp_state *state)
 	}
 	return 0;
 }
-/*
-// 权限比较，函数待优化！！！
-static int cap_check(pid_t p1, pid_t p2)
-{
-	int res = 0;
-	FILE *file1, *file2;
-	unsigned long cap1, cap2;
-	char c[] = " ", c1[] = ":";
-	char cmd[128], exist1[64], exist2[64], cap[64];
-	sprintf(cmd, "ps -ef |grep %d |grep -v \" grep \" |wc -l", p1);
-	file1 = popen(cmd, "r");
-	sprintf(cmd, "ps -ef |grep %d |grep -v \" grep \" |wc -l", p2);
-	file2 = popen(cmd, "r");
-	if (file1 != NULL && file2 != NULL)
-	{
-		fgets(exist1, 64, file1);
-		fgets(exist2, 64, file2);
-	}
-	if (atoi(exist1) != 0 && atoi(exist2) != 0)
-	{
-		memset(cmd, 0, 128);
-		sprintf(cmd, "sudo cat /proc/%d/task/%d/status | grep CapEff", p1, p1);
-		file1 = popen(cmd, "r");
-		if (file1 != NULL)
-		{
-			fgets(cap, 64, file1);
-			char *token, *token1;
-			token = strtok(cap, c);
-			token1 = strtok(token, c1);
-			token1 = strtok(NULL, c1);
-			cap1 = strtoul(token1, NULL, 16);
-		}
-		memset(cmd, 0, 128);
-		memset(cap, 0, 64);
-		sprintf(cmd, "sudo cat /proc/%d/task/%d/status | grep CapEff", p2, p2);
-		file2 = popen(cmd, "r");
-		if (file2 != NULL)
-		{
-			fgets(cap, 64, file2);
-			char *token, *token1;
-			token = strtok(cap, c);
-			token1 = strtok(token, c1);
-			token1 = strtok(NULL, c1);
-			cap2 = strtoul(token1, NULL, 16);
-		}
-		// TODO: 这里比较cap值的大小以判断权限的大小，是否是正确的？不正确就还是要用“capsh --decode”解析
-		if (cap1 <= cap2)
-		{
-			res = 1;
-			// printf("OK\n");
-		}
-		else
-		{
-			res = -1;
-		}
-	}
 
-	pclose(file1);
-	pclose(file2);
-	return res;
-}
-*/
 static int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
 {
 	if (level == LIBBPF_DEBUG && !process_env.verbose)
