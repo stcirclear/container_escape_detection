@@ -49,6 +49,10 @@ sudo python3 main.py -a alert run -c "sudo docker run -itd --rm --name=test alpi
 ```shell
 sudo python3 main.py -a alert monitor -p 1234
 ```
+5. 容器方式
+```shell
+sudo docker run --rm -it --pid=host --cgroupns=host -v /home/ubuntu/Documents/container_escape_detection/src/main.py:/main.py -v /sys/kernel/:/sys/kernel/ -v /sys/fs/bpf/:/sys/fs/bpf/ -v /var/run/docker.sock:/var/run/docker.sock -v /home/ubuntu/Documents/container_escape_detection/src/log/:/container_monitor/log/ --privileged monitor:v3 /main.py -a intercept run -c "sudo docker run -itd --rm --name=test3 ubuntu /bin/bash"
+```
 
 ## 说明
 ### 1. 
